@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popular Science Style Magazine</title>
+    <style>
+        /* 기본 설정 */
+        body { margin: 0; font-family: 'Helvetica Neue', sans-serif; color: #333; background-color: #fff; }
+        header { padding: 20px 5%; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .logo { font-weight: bold; font-size: 24px; letter-spacing: -1px; }
+        
+        /* 히어로 섹션 (해파리 부분) */
+        .hero {
+            position: relative;
+            height: 500px;
+            background: linear-gradient(rgba(0,0,50,0.5), rgba(0,0,50,0.5)), 
+                        url('https://images.unsplash.com/photo-1545671913-b89ac1b4ac10?auto=format&fit=crop&w=1200') no-repeat center/cover;
+            display: flex;
+            align-items: center;
+            padding: 0 10%;
+            color: white;
+        }
+        .hero-content h1 { font-size: 3rem; max-width: 600px; line-height: 1.1; margin-bottom: 20px; }
+
+        /* 섹션 공통 스타일 */
+        section { padding: 50px 10%; }
+        .section-title { border-bottom: 2px solid #000; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .section-title h2 { margin: 0; font-size: 1.2rem; text-transform: uppercase; padding-bottom: 5px; }
+
+        /* 그리드 레이아웃 */
+        .news-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+        .main-article img { width: 100%; height: 350px; object-fit: cover; }
+        .side-articles { display: flex; flex-direction: column; gap: 20px; }
+        .side-item { display: flex; gap: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .side-item img { width: 100px; height: 70px; object-fit: cover; }
+        .side-item h4 { margin: 0; font-size: 0.9rem; }
+
+        /* 명언 섹션 */
+        .quote-section { text-align: center; padding: 100px 10%; background-color: #fafafa; }
+        .quote { font-size: 2rem; font-weight: bold; line-height: 1.4; max-width: 800px; margin: 0 auto; }
+        .quote span { color: #ff4d4d; }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .news-grid { grid-template-columns: 1fr; }
+            .hero-content h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">POPULAR SCIENCE</div>
+        <nav>SEARCH | LOG IN</nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="hero-content">
+                <p>BIOLOGY</p>
+                <h1>THESE ANIMALS BUILD PALACES OUT OF THEIR OWN SNOT</h1>
+                <p>25 May 2026 — By Gemini</p>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-title">
+                <h2>LATEST NEWS</h2>
+            </div>
+            <div class="news-grid">
+                <div class="main-article">
+                    <img src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800" alt="main">
+                    <h3>Ice sheets were melt much faster than we thought</h3>
+                </div>
+                <div class="side-articles">
+                    <div class="side-item">
+                        <img src="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=200" alt="side">
+                        <div>
+                            <p style="color:red; font-size:10px; margin:0;">HEALTH</p>
+                            <h4>You are sleeping? This device sleep better in night map</h4>
+                        </div>
+                    </div>
+                    <div class="side-item">
+                        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=200" alt="side">
+                        <div>
+                            <p style="color:red; font-size:10px; margin:0;">TECHNOLOGY</p>
+                            <h4>A simple background photo is fixing Android users smartphones</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="quote-section">
+            <p class="quote">"SOMEWHERE, SOMETHING <span>INCREDIBLE</span> IS WAITING TO BE KNOWN."</p>
+            <p>— Carl Sagan</p>
+        </section>
+    </main>
+
+</body>
+</html>
