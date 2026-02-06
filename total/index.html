@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHER | Modern Essentials</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <div class="container">
+            <h1 class="logo" onclick="location.reload()">AETHER</h1>
+            <nav class="main-nav">
+                <span onclick="renderProducts('all')">NEW</span>
+                <span onclick="renderProducts('outer')">OUTER</span>
+                <span onclick="renderProducts('top')">TOP</span>
+            </nav>
+            <div class="header-icons">
+                <span onclick="toggleModal('login-modal')">LOGIN</span>
+                <span onclick="showCart()">CART (<b id="cart-count">0</b>)</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div id="product-grid" class="product-grid"></div>
+    </main>
+
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="toggleModal('login-modal')">&times;</span>
+            <h2>LOG IN</h2>
+            <input type="email" id="login-email" placeholder="E-MAIL">
+            <input type="password" placeholder="PASSWORD">
+            <button class="btn-black" onclick="handleLogin()">CONTINUE</button>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
