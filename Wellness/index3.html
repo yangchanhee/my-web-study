@@ -1,0 +1,511 @@
+<!-- Chosen Palette: Wellness Emerald & Indigo Deep (Primary: #10B981, Secondary: #6366F1, Bg: #F8FAFC, Accent: #F59E0B) -->
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VitalLoop AI Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #F8FAFC;
+            color: #1E293B;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .active-tab { color: #6366F1 !important; }
+        .active-tab span:first-child { transform: translateY(-4px); transition: transform 0.2s; }
+
+        .view-section { display: none; animation: fadeIn 0.3s ease-out; }
+        .view-section.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pro-gradient {
+            background: linear-gradient(135deg, #6366F1 0%, #a855f7 100%);
+        }
+
+        .ai-pulse { animation: pulse-border 2s infinite; }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+
+        .map-container {
+            background-color: #E2E8F0;
+            background-image: radial-gradient(#CBD5E1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #1E293B;
+            color: #fff;
+            text-align: center;
+            border-radius: 12px;
+            padding: 16px;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            bottom: 100px;
+            transform: translateX(-50%);
+            font-size: 14px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        #toast.show { visibility: visible; animation: fadein_toast 0.5s, fadeout_toast 0.5s 2.5s; }
+        @keyframes fadein_toast { from {bottom: 0; opacity: 0;} to {bottom: 100px; opacity: 1;} }
+        @keyframes fadeout_toast { from {bottom: 100px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+    </style>
+</head>
+<body class="pb-24">
+
+    <div id="toast"></div>
+
+    <!-- Top Header -->
+    <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <span class="pro-gradient text-white p-1 rounded-lg text-xs font-black px-2">PRO</span>
+            VitalLoop
+        </h1>
+        <div id="weather-brief" class="text-[10px] text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full">
+            서울 12°C ☀️ (좋음)
+        </div>
+    </header>
+
+    <main id="app-content" class="px-5 py-6">
+
+        <!-- [VIEW 1] HOME -->
+        <section id="view-home" class="view-section active space-y-6">
+            
+            <div class="flex justify-between items-center px-1">
+                <h2 class="text-xl font-bold">건강 브리핑</h2>
+                <button onclick="saveDashboardData()" class="pro-gradient text-white text-[10px] px-4 py-1.5 rounded-full font-bold shadow-lg active:scale-95 transition-all">✨ Pro 분석 실행</button>
+            </div>
+
+            <!-- Pro Insight Card -->
+            <div id="ai-insight-card" class="hidden bg-white p-5 rounded-3xl border border-indigo-100 shadow-xl shadow-indigo-50/50 overflow-hidden relative">
+                <div class="absolute top-0 right-0 p-4 opacity-10">✨</div>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-indigo-600 font-black text-sm uppercase tracking-tighter">Pro Intelligence</span>
+                </div>
+                <p id="ai-insight-text" class="text-xs text-slate-600 leading-relaxed font-medium italic"></p>
+                <div id="grounding-chips" class="mt-3 flex flex-wrap gap-1"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="text-lg">❤️</span>
+                        <span class="text-[10px] text-rose-500 font-bold">심박동</span>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <input type="number" id="home-heartrate" value="72" class="input-minimal text-2xl font-black w-14">
+                        <span class="text-xs font-normal text-slate-400">bpm</span>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="text-lg">🌙</span>
+                        <span class="text-[10px] text-indigo-500 font-bold">수면</span>
+                    </div>
+                    <div class="flex items-baseline gap-1">
+                        <input type="number" id="home-sleep-h" value="7" class="input-minimal text-2xl font-black w-8">
+                        <span class="text-xs font-normal text-slate-400 text-[10px]">h</span>
+                        <input type="number" id="home-sleep-m" value="20" class="input-minimal text-2xl font-black w-10">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pro AI Advisor Chat -->
+            <div class="bg-slate-900 p-6 rounded-[2.5rem] shadow-2xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <h4 class="font-bold text-sm flex items-center gap-2 text-white"><span>💬</span> Pro 건강 비서</h4>
+                    <span class="text-[8px] text-indigo-400 font-bold uppercase tracking-widest border border-indigo-400/30 px-2 py-0.5 rounded">Search Grounding On</span>
+                </div>
+                <div id="chat-history" class="max-h-60 overflow-y-auto space-y-3 text-[11px] no-scrollbar pr-1">
+                    <div class="text-slate-500">궁금한 의학 상식이나 몸 상태를 물어보세요. 구글 검색을 통해 검증된 정보를 드립니다.</div>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="ai-chat-input" placeholder="커피가 수면에 미치는 영향은?" class="flex-1 bg-white/10 border-none rounded-2xl px-5 py-3 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500">
+                    <button onclick="askGeminiPro()" class="pro-gradient text-white px-5 py-3 rounded-2xl text-xs font-bold shadow-lg">전송</button>
+                </div>
+            </div>
+
+            <!-- Weekly Stats -->
+            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h4 class="font-bold mb-4 flex items-center gap-2 text-sm"><span>📊</span> AI 예측 활동 트렌드</h4>
+                <div class="h-40">
+                    <canvas id="homeChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- [VIEW 2] THERAPY -->
+        <section id="view-therapy" class="view-section space-y-6">
+            <h2 class="text-2xl font-bold">Pro 테라피 맵</h2>
+            <div class="space-y-4">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <h4 class="font-bold text-sm mb-2 text-slate-700">"지금 가보고 싶은 힐링 테마를 적어주세요."</h4>
+                    <textarea id="mood-input" placeholder="서울 근교의 조용한 숲길이나 하천 산책로가 보고 싶어요..." class="w-full bg-slate-50 border-none rounded-xl p-4 text-xs h-24 outline-none resize-none focus:ring-1 focus:ring-indigo-500 mb-3"></textarea>
+                    <button onclick="generateProTherapy()" class="w-full py-4 pro-gradient text-white rounded-2xl font-bold text-xs shadow-xl">✨ 실시간 힐링 장소 검색</button>
+                </div>
+                
+                <div id="therapy-plan-box" class="hidden space-y-5">
+                    <div class="bg-white p-3 rounded-3xl border border-slate-100 shadow-sm">
+                        <div class="map-container w-full h-56 rounded-2xl mb-4 overflow-hidden border border-slate-50 relative">
+                            <div id="map-markers-container" class="relative w-full h-full"></div>
+                        </div>
+                        <div id="therapy-list" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- [VIEW 3] FOOD LENS -->
+        <section id="view-camera" class="view-section space-y-6">
+            <h2 class="text-2xl font-bold">AI 푸드 분석 Pro</h2>
+            <div class="bg-slate-900 aspect-square rounded-[2.5rem] relative overflow-hidden flex flex-col items-center justify-center text-white p-10 text-center shadow-2xl">
+                <div id="cam-idle" class="space-y-4">
+                    <div class="text-6xl mb-4">🥗</div>
+                    <p class="font-bold text-xl leading-tight">식단을 고도로<br>분석합니다</p>
+                    <button onclick="runProFoodAnalysis()" class="px-8 py-4 pro-gradient rounded-full font-bold shadow-xl">분석 엔진 가동</button>
+                </div>
+                <div id="cam-loading" class="hidden ai-pulse text-center">
+                    <div class="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                    <p class="font-bold text-indigo-400">Gemini Pro 고성능 분석 중...</p>
+                </div>
+                <div id="cam-done" class="hidden w-full text-left space-y-5 animate-fadeIn">
+                    <div class="bg-white/10 p-6 rounded-3xl backdrop-blur-xl border border-white/20">
+                        <h4 id="cam-food-name" class="font-bold text-indigo-300 text-xl">분석 완료</h4>
+                        <p id="cam-food-advice" class="text-xs text-slate-300 mt-2 mb-6 leading-relaxed"></p>
+                        <div id="cam-stats" class="grid grid-cols-2 gap-3"></div>
+                    </div>
+                    <button onclick="resetCamera()" class="w-full py-4 bg-white/10 rounded-2xl text-xs font-bold">다른 식단 분석</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- [VIEW 4] MARKET -->
+        <section id="view-market" class="view-section space-y-6">
+            <h2 class="text-2xl font-bold">바이탈 스토어</h2>
+            <div class="grid grid-cols-2 gap-4 pb-10" id="market-grid"></div>
+        </section>
+
+        <!-- [VIEW 5] SETTINGS -->
+        <section id="view-settings" class="view-section space-y-8">
+            <h2 class="text-2xl font-bold">프로필 & 설정</h2>
+            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-5">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-400 font-bold uppercase">키 (cm)</label>
+                        <input type="number" id="user-height" value="175" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-400 font-bold uppercase">몸무게 (kg)</label>
+                        <input type="number" id="user-weight" value="70" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] text-slate-400 font-bold uppercase">지역</label>
+                    <select id="user-location" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                        <option value="seoul">서울특별시</option>
+                        <option value="gyeonggi">경기도</option>
+                        <option value="busan">부산광역시</option>
+                        <option value="jeju">제주도</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="saveSettings()" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold">설정 저장</button>
+        </section>
+
+    </main>
+
+    <!-- Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 h-20 flex items-center justify-around z-50 px-2">
+        <button onclick="switchView('home')" id="nav-home" class="nav-item flex flex-col items-center gap-1 active-tab flex-1">
+            <span class="text-xl">🏠</span>
+            <span class="text-[9px] font-bold">브리핑</span>
+        </button>
+        <button onclick="switchView('therapy')" id="nav-therapy" class="nav-item flex flex-col items-center gap-1 text-slate-300 flex-1">
+            <span class="text-xl">📍</span>
+            <span class="text-[9px] font-bold">테라피맵</span>
+        </button>
+        <button onclick="switchView('camera')" id="nav-camera" class="nav-item flex flex-col items-center gap-1 text-slate-300 flex-1">
+            <span class="text-xl">🥗</span>
+            <span class="text-[9px] font-bold">푸드렌즈</span>
+        </button>
+        <button onclick="switchView('market')" id="nav-market" class="nav-item flex flex-col items-center gap-1 text-slate-300 flex-1">
+            <span class="text-xl">🛒</span>
+            <span class="text-[9px] font-bold">스토어</span>
+        </button>
+        <button onclick="switchView('settings')" id="nav-settings" class="nav-item flex flex-col items-center gap-1 text-slate-300 flex-1">
+            <span class="text-xl">⚙️</span>
+            <span class="text-[9px] font-bold">설정</span>
+        </button>
+    </nav>
+
+    <script>
+        const apiKey = ""; 
+        const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+
+        let userData = { height: 175, weight: 70, location: 'seoul', heartrate: 72, sleepH: 7, sleepM: 20 };
+
+        // --- GEMINI PRO CORE (With Grounding) ---
+        async function callGeminiPro(prompt, systemInstruction = "너는 Pro 등급의 헬스케어 AI야. 구글 검색을 적극 활용해 정확한 정보를 한국어로 제공해.", useSearch = false) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] }
+            };
+
+            if (useSearch) {
+                payload.tools = [{ "google_search": {} }];
+            }
+
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const citations = data.candidates?.[0]?.groundingMetadata?.groundingAttributions || [];
+                    return { text, citations };
+                } catch (e) {
+                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+                }
+            }
+            return { text: "분석 실패", citations: [] };
+        }
+
+        async function callGeminiJSON(prompt, schema) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                }
+            };
+            try {
+                const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+                const data = await response.json();
+                return JSON.parse(data.candidates[0].content.parts[0].text);
+            } catch (e) { return null; }
+        }
+
+        // --- ACTIONS ---
+        function showToast(msg) {
+            const x = document.getElementById("toast");
+            x.innerText = msg;
+            x.className = "show";
+            setTimeout(() => x.className = "", 3000);
+        }
+
+        async function saveDashboardData() {
+            userData.heartrate = document.getElementById('home-heartrate').value;
+            userData.sleepH = document.getElementById('home-sleep-h').value;
+            showToast("✨ Gemini Pro가 정밀 분석 중입니다...");
+            
+            const prompt = `내 심박수는 ${userData.heartrate}bpm, 수면 시간은 ${userData.sleepH}시간이야. 의학적 관점에서 내 건강 상태를 정밀하게 1문장으로 분석하고, 구체적인 개선안 1가지를 알려줘.`;
+            const { text, citations } = await callGeminiPro(prompt, "전문 의학 지식을 갖춘 Pro AI. 근거 기반으로 답변할 것.", true);
+            
+            document.getElementById('ai-insight-card').classList.remove('hidden');
+            document.getElementById('ai-insight-text').innerText = text;
+            
+            const chips = document.getElementById('grounding-chips');
+            chips.innerHTML = citations.slice(0, 3).map(c => 
+                `<a href="${c.web?.uri}" target="_blank" class="text-[8px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">🔗 ${c.web?.title?.substring(0, 15)}...</a>`
+            ).join('');
+        }
+
+        async function askGeminiPro() {
+            const input = document.getElementById('ai-chat-input');
+            const history = document.getElementById('chat-history');
+            const msg = input.value.trim();
+            if(!msg) return;
+
+            const userDiv = document.createElement('div');
+            userDiv.className = "text-right ml-auto bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-none text-xs max-w-[85%]";
+            userDiv.innerText = msg;
+            history.appendChild(userDiv);
+            input.value = "";
+            history.scrollTop = history.scrollHeight;
+
+            const { text, citations } = await callGeminiPro(msg, "Pro 건강 비서. 최신 웹 정보를 바탕으로 신뢰성 있는 답변을 줄 것.", true);
+            
+            const aiDiv = document.createElement('div');
+            aiDiv.className = "text-left bg-white/5 text-slate-300 p-4 rounded-2xl rounded-tl-none text-xs max-w-[85%] border border-white/10";
+            aiDiv.innerHTML = `<div>✨ ${text}</div>`;
+            
+            if(citations.length > 0) {
+                const sourceDiv = document.createElement('div');
+                sourceDiv.className = "mt-2 pt-2 border-t border-white/5 flex flex-wrap gap-1";
+                sourceDiv.innerHTML = citations.slice(0, 2).map(c => 
+                    `<span class="text-[7px] text-indigo-400 font-bold uppercase tracking-tight">Source: ${c.web?.title?.substring(0, 20)}</span>`
+                ).join('');
+                aiDiv.appendChild(sourceDiv);
+            }
+
+            history.appendChild(aiDiv);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        async function generateProTherapy() {
+            const input = document.getElementById('mood-input').value;
+            if(!input) return showToast("테마를 입력해주세요.");
+            showToast("📍 실시간 힐링 장소를 탐색 중입니다...");
+            
+            const schema = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        name: { type: "STRING" },
+                        category: { type: "STRING" },
+                        desc: { type: "STRING" },
+                        lat: { type: "NUMBER" },
+                        lng: { type: "NUMBER" },
+                        icon: { type: "STRING" }
+                    }
+                }
+            };
+            
+            const prompt = `사용자 위치: ${userData.location}, 테마: "${input}". 
+            실제로 현존하는 한국의 카페, 산책로, 힐링 스팟 4곳을 찾으세요. 좌표는 0~100 사이 랜덤값. 
+            구체적인 장소명과 특징을 JSON으로 반환하세요.`;
+            
+            const spots = await callGeminiJSON(prompt, schema);
+            if(spots) {
+                document.getElementById('therapy-plan-box').classList.remove('hidden');
+                document.getElementById('therapy-list').innerHTML = spots.map(s => `
+                    <div class="p-4 rounded-2xl bg-white border border-slate-100 flex gap-4 shadow-sm hover:border-indigo-400 transition-all">
+                        <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-xl flex-shrink-0">${s.icon}</div>
+                        <div>
+                            <h5 class="font-bold text-xs text-slate-800">${s.name} <span class="text-[8px] bg-indigo-100 text-indigo-600 px-1 py-0.5 rounded ml-1">${s.category}</span></h5>
+                            <p class="text-[10px] text-slate-400 leading-snug mt-1">${s.desc}</p>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('map-markers-container').innerHTML = spots.map(s => `
+                    <div class="absolute group" style="top: ${s.lat}%; left: ${s.lng}%;">
+                        <div class="cursor-pointer text-indigo-600 text-lg animate-bounce">📍</div>
+                    </div>
+                `).join('');
+                document.getElementById('therapy-plan-box').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        async function runProFoodAnalysis() {
+            document.getElementById('cam-idle').classList.add('hidden');
+            document.getElementById('cam-loading').classList.remove('hidden');
+
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    food: { type: "STRING" },
+                    kcal: { type: "NUMBER" },
+                    protein: { type: "STRING" },
+                    fiber: { type: "STRING" },
+                    score: { type: "NUMBER" },
+                    advice: { type: "STRING" }
+                }
+            };
+            
+            const result = await callGeminiJSON("랜덤한 고영양 식단 하나를 골라 영양 성분을 분석한 JSON을 줘. 건강 점수(score, 0~100)를 포함해.", schema);
+
+            setTimeout(() => {
+                document.getElementById('cam-loading').classList.add('hidden');
+                document.getElementById('cam-done').classList.remove('hidden');
+                if(result) {
+                    document.getElementById('cam-food-name').innerText = result.food;
+                    document.getElementById('cam-food-advice').innerText = result.advice;
+                    document.getElementById('cam-stats').innerHTML = `
+                        <div class="bg-white/5 p-3 rounded-xl"><p class="text-[9px] text-slate-400">칼로리</p><p class="font-black text-white">${result.kcal}kcal</p></div>
+                        <div class="bg-white/5 p-3 rounded-xl"><p class="text-[9px] text-slate-400">건강 점수</p><p class="font-black text-indigo-400">${result.score}점</p></div>
+                        <div class="bg-white/5 p-3 rounded-xl"><p class="text-[9px] text-slate-400">단백질</p><p class="font-black text-white">${result.protein}</p></div>
+                        <div class="bg-white/5 p-3 rounded-xl"><p class="text-[9px] text-slate-400">식이섬유</p><p class="font-black text-white">${result.fiber}</p></div>
+                    `;
+                }
+            }, 2000);
+        }
+
+        // --- UI & INIT ---
+        function switchView(viewName) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            document.getElementById(`view-${viewName}`).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-tab', 'text-slate-300'));
+            document.getElementById(`nav-${viewName}`).classList.add('active-tab');
+            window.scrollTo(0,0);
+        }
+
+        function renderMarket() {
+            const products = [
+                { name: "Pro 맞춤 멀티비타민", price: "52,000", emoji: "🧪" },
+                { name: "저분자 콜라겐 (Pro)", price: "34,000", emoji: "💧" },
+                { name: "유기농 ABC 클렌즈", price: "18,000", emoji: "🥤" },
+                { name: "프리미엄 요가매트", price: "45,000", emoji: "🧶" },
+                { name: "디지털 체성분계", price: "68,000", emoji: "⚖️" },
+                { name: "WPI 프로틴 아이솔레이트", price: "49,000", emoji: "⚡" },
+                { name: "회복용 폼롤러", price: "24,000", emoji: "🧘" },
+                { name: "L-테아닌 수면 영양제", price: "29,000", emoji: "🌙" },
+                { name: "비건 에너지바 (10입)", price: "22,000", emoji: "🍫" },
+                { name: "스마트 마사지 건", price: "89,000", emoji: "🔨" }
+            ];
+            document.getElementById('market-grid').innerHTML = products.map(p => `
+                <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm active:scale-95 transition-all">
+                    <div class="bg-slate-50 aspect-square rounded-2xl mb-3 flex items-center justify-center text-3xl">${p.emoji}</div>
+                    <h5 class="text-[10px] font-bold truncate text-slate-700">${p.name}</h5>
+                    <p class="text-xs font-black mt-1">${p.price}원</p>
+                    <button class="mt-2 w-full py-2 bg-slate-900 text-white text-[9px] rounded-xl font-bold">구매하기</button>
+                </div>
+            `).join('');
+        }
+
+        function resetCamera() {
+            document.getElementById('cam-idle').classList.remove('hidden');
+            document.getElementById('cam-done').classList.add('hidden');
+        }
+
+        window.onload = () => {
+            renderMarket();
+            const ctx = document.getElementById('homeChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['월', '화', '수', '목', '금', '토', '일'],
+                    datasets: [{
+                        data: [4200, 6800, 5100, 9400, 8200, 11000, 8500],
+                        borderColor: '#6366F1',
+                        borderWidth: 3,
+                        pointRadius: 0, tension: 0.4, fill: true,
+                        backgroundColor: 'rgba(99, 102, 241, 0.05)'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
+                }
+            });
+            document.getElementById('ai-chat-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') askGeminiPro(); });
+        };
+    </script>
+</body>
+</html>

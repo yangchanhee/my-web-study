@@ -1,37 +1,449 @@
+<!-- Chosen Palette: Warm Neutrals & Soft Teal (Canvas: #FDFBF7, Text: #1F2937, Accent: #14B8A6, Secondary: #F3F4F6) -->
+
+<!-- Application Structure Plan: 
+    본 애플리케이션은 웹 프로젝트 명세서를 시각화하기 위한 '인터랙티브 블루프린트 대시보드'로 설계되었습니다.
+    1. 히어로 섹션: 프로젝트의 핵심 목표와 개요를 즉시 파악할 수 있도록 배치.
+    2. 시나리오 로드맵 (인터랙티브 타임라인): 6단계 시나리오를 중앙 내비게이션 요소로 설정. 클릭 시 하단의 상세 기능 카드가 실시간으로 필터링되어 탐색의 용이성 극대화.
+    3. 데이터 분석 대시보드: Chart.js를 활용하여 단계별 기능 분포와 구현 난이도를 시각화. 텍스트 위주의 명세서를 정량적 통계로 변환.
+    4. 기능 명세 그리드: 각 시나리오에 해당하는 세부 요구사항을 카드 형태로 제공.
+    5. 기술 스택 및 디자인 시스템: 프로젝트 수행을 위한 기술 제약 조건과 디자인 가이드를 모듈형으로 제시.
+    
+    이 구조는 사용자가 프로젝트의 전체 흐름(타임라인)과 세부 내용(그리드)을 동시에 파악하고, 데이터 기반의 의사결정(차트)을 돕기 위해 설계되었습니다.
+-->
+
+<!-- Visualization & Content Choices:
+    1. 목표: 단계별 기능 비중 확인 -> 방식: 도넛 차트 (Chart.js) -> 이유: 어떤 단계에 기능이 집중되어 있는지 한눈에 파악 가능.
+    2. 목표: 구현 복잡도 예측 -> 방식: 바 차트 (Chart.js) -> 이유: 각 단계별 예상 노력 수준을 시각적으로 비교.
+    3. 목표: 세부 기능 조직화 -> 방식: 동적 카드 그리드 (JS) -> 이유: 방대한 테이블 데이터를 개별 항목으로 쪼개어 가독성 향상.
+    4. 목표: 프로세스 흐름 시각화 -> 방식: 쉐브론 스타일 내비게이션 (Tailwind) -> 이유: 선형적인 사용자 여정을 직관적으로 표현.
+-->
+
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BIO-OS | 정밀 건강 대시보드</title>
-    <meta name="description" content="AI 기반 뇌파 및 바이오리듬 분석 플랫폼 BIO-OS입니다.">
-    <meta property="og:title" content="BIO-OS 건강 대시보드">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>웹사이트 프로젝트 시나리오 인터랙티브 명세서</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Apple SD Gothic Neo', sans-serif; margin: 0; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        .container { text-align: center; padding: 20px; border: 1px solid #334155; border-radius: 20px; background: #1e293b; width: 80%; max-width: 400px; }
-        button { background: #38bdf8; color: #0f172a; border: none; padding: 15px 20px; border-radius: 12px; font-weight: bold; margin: 10px 0; width: 100%; cursor: pointer; }
-        #data-display { margin-top: 20px; font-size: 0.9rem; color: #94a3b8; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #FDFBF7;
+            color: #374151;
+            margin: 0;
+            padding: 0;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        .active-step {
+            background-color: #14B8A6;
+            color: white;
+            border-color: #14B8A6;
+            box-shadow: 0 4px 6px -1px rgba(20, 184, 166, 0.4);
+        }
+        
+        .card-hover {
+            transition: all 0.2s ease-in-out;
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>BIO-OS</h1>
-        <p>생체 데이터 실시간 연동</p>
-        <button onclick="askLocation()">📍 현재 위치 기반 분석</button>
-        <button onclick="sendPush()">🔔 건강 알림 테스트</button>
-        <div id="data-display">버튼을 눌러 데이터를 활성화하세요.</div>
-    </div>
+<body class="antialiased min-h-screen">
+
+    <!-- Header Area -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🌐</span>
+                <h1 class="text-xl font-bold text-gray-800 tracking-tight">Project <span class="text-teal-600">Architect</span></h1>
+            </div>
+            <nav class="hidden md:flex gap-8 text-sm font-medium text-gray-500">
+                <a href="#overview" class="hover:text-teal-600 transition">개요</a>
+                <a href="#analytics" class="hover:text-teal-600 transition">분석 대시보드</a>
+                <a href="#roadmap" class="hover:text-teal-600 transition">시나리오 로드맵</a>
+                <a href="#tech" class="hover:text-teal-600 transition">기술 스택</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-16">
+
+        <!-- 1. Hero Overview -->
+        <section id="overview" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 md:p-12">
+            <div class="max-w-4xl">
+                <div class="inline-flex items-center px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold mb-6">
+                    Project Specification v1.0
+                </div>
+                <h2 class="text-3xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+                    웹사이트 제작 시나리오 및 <br><span class="text-teal-600">데이터 통합 명세 대시보드</span>
+                </h2>
+                <p class="text-lg md:text-xl text-gray-600 leading-relaxed mb-8">
+                    사용자의 여정을 6가지 핵심 시나리오로 재구성하여 각 단계에 필요한 기능적 요소를 빠짐없이 정리했습니다. 
+                    본 인터랙티브 도구는 단순한 텍스트 나열을 넘어, 프로젝트의 규모와 복잡도를 직관적으로 이해할 수 있도록 설계되었습니다.
+                </p>
+                <div class="flex flex-wrap gap-4">
+                    <div class="flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-xl border border-gray-200">
+                        <span class="text-xl">📊</span>
+                        <div>
+                            <p class="text-xs text-gray-400 font-bold uppercase">Complexity</p>
+                            <p class="text-sm font-bold text-gray-700">추정치 기반 분석</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-xl border border-gray-200">
+                        <span class="text-xl">🛠️</span>
+                        <div>
+                            <p class="text-xs text-gray-400 font-bold uppercase">Modern Tech</p>
+                            <p class="text-sm font-bold text-gray-700">최신 웹 표준 준수</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Analytics Section -->
+        <section id="analytics" class="space-y-6">
+            <div class="border-l-4 border-teal-500 pl-4">
+                <h3 class="text-2xl font-bold text-gray-800">데이터 기반 분석</h3>
+                <p class="text-gray-500">각 시나리오별 기능의 양과 구현 난이도를 분석한 결과입니다.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Distribution Chart -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                    <h4 class="text-center font-bold text-gray-500 mb-6 uppercase text-sm tracking-widest">단계별 기능 비중 분포</h4>
+                    <div class="chart-container">
+                        <canvas id="distChart"></canvas>
+                    </div>
+                </div>
+                <!-- Difficulty Chart -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                    <h4 class="text-center font-bold text-gray-500 mb-6 uppercase text-sm tracking-widest">시나리오별 구현 난이도 (추정)</h4>
+                    <div class="chart-container">
+                        <canvas id="diffChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Interactive Roadmap Section -->
+        <section id="roadmap" class="space-y-8">
+            <div class="text-center max-w-2xl mx-auto">
+                <h3 class="text-3xl font-bold text-gray-900 mb-3">사용자 시나리오 로드맵</h3>
+                <p class="text-gray-600">각 단계를 클릭하여 해당 프로세스에서 필요한 모든 구성 요소를 확인하세요.</p>
+            </div>
+
+            <!-- Nav Buttons -->
+            <div class="flex flex-wrap justify-center gap-3" id="nav-wrapper">
+                <!-- Generated by JS -->
+            </div>
+
+            <!-- Detail Display Area -->
+            <div class="bg-white rounded-3xl border border-gray-200 p-8 md:p-10 shadow-sm overflow-hidden">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 border-b border-gray-100 pb-6">
+                    <div>
+                        <h4 id="display-title" class="text-2xl font-bold text-gray-900 mb-1">진입 단계 선택</h4>
+                        <p id="display-remark" class="text-teal-600 font-medium italic">시나리오를 선택하면 상세 정보가 표시됩니다.</p>
+                    </div>
+                    <div id="display-id-badge" class="px-4 py-2 bg-gray-100 rounded-full text-xs font-black text-gray-400">
+                        PHASE 00
+                    </div>
+                </div>
+
+                <!-- Feature Grid -->
+                <div id="feature-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Cards Generated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Tech & Future Section -->
+        <section id="tech" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left: Tech Stack -->
+            <div class="lg:col-span-2 space-y-8">
+                <div class="bg-gray-900 rounded-3xl p-8 md:p-10 text-white">
+                    <h3 class="text-2xl font-bold mb-8 flex items-center gap-3">
+                        <span class="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center text-sm">JS</span>
+                        기술 스택 (Technical Stack)
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-4 group">
+                                <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">⚛️</div>
+                                <div>
+                                    <h5 class="font-bold text-teal-400">Frontend Core</h5>
+                                    <p class="text-sm text-gray-400">React / HTML5 시맨틱 구조</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 group">
+                                <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">🎨</div>
+                                <div>
+                                    <h5 class="font-bold text-teal-400">Style Engine</h5>
+                                    <p class="text-sm text-gray-400">Tailwind CSS (Utility-First)</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-4 group">
+                                <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">🔋</div>
+                                <div>
+                                    <h5 class="font-bold text-teal-400">State Management</h5>
+                                    <p class="text-sm text-gray-400">React Hooks & Context API</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4 group">
+                                <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg">📦</div>
+                                <div>
+                                    <h5 class="font-bold text-teal-400">Assets</h5>
+                                    <p class="text-sm text-gray-400">Lucide-React / Font-Awesome</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expansion Plans -->
+                <div class="bg-teal-50 rounded-3xl p-8 border border-teal-100">
+                    <h4 class="text-xl font-bold text-teal-900 mb-6">🚀 향후 확장 계획 (Future Plans)</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div class="space-y-2">
+                            <span class="text-2xl">☁️</span>
+                            <h6 class="font-bold text-gray-800">클라우드 연동</h6>
+                            <p class="text-xs text-gray-500 leading-relaxed">데이터 영속성을 위한 Firestore 및 클라우드 DB 연동</p>
+                        </div>
+                        <div class="space-y-2">
+                            <span class="text-2xl">🤝</span>
+                            <h6 class="font-bold text-gray-800">협업 도구화</h6>
+                            <p class="text-xs text-gray-500 leading-relaxed">멀티플레이어 모드 도입을 통한 실시간 동시 수정</p>
+                        </div>
+                        <div class="space-y-2">
+                            <span class="text-2xl">📈</span>
+                            <h6 class="font-bold text-gray-800">성능 최적화</h6>
+                            <p class="text-xs text-gray-500 leading-relaxed">Lazy Loading 및 이미지 압축 알고리즘 적용</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Design Guide -->
+            <div class="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm space-y-8">
+                <h4 class="text-xl font-bold text-gray-800 border-b border-gray-100 pb-4">🎨 디자인 시스템</h4>
+                <div class="space-y-6">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-gray-400 uppercase">Primary Color</label>
+                        <div class="flex items-center gap-3">
+                            <div class="w-full h-8 bg-teal-500 rounded-lg"></div>
+                            <span class="text-xs font-mono">#14B8A6</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-gray-400 uppercase">Layout Strategy</label>
+                        <div class="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <p class="text-sm font-bold text-gray-700">Mobile-First</p>
+                            <p class="text-xs text-gray-400 mt-1 leading-relaxed">모바일에서 가장 먼저 최적화된 화면을 보여주며 데스크톱으로 확장합니다.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-gray-400 uppercase">Typography</label>
+                        <p class="text-2xl font-bold text-gray-900">Noto Sans KR</p>
+                        <p class="text-sm text-gray-500">가독성과 현대적인 느낌을 동시에 제공하는 폰트 시스템</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-50 border-t border-gray-200 py-12">
+        <div class="max-w-7xl mx-auto px-4 text-center space-y-4">
+            <p class="text-gray-400 text-sm">© 2024 Web Project Specification Dashboard. 모든 권리 보유.</p>
+            <div class="flex justify-center gap-6 text-gray-400 text-xs font-medium">
+                <a href="#" class="hover:text-teal-600">이용약관</a>
+                <a href="#" class="hover:text-teal-600">개인정보처리방침</a>
+                <a href="#" class="hover:text-teal-600">기술지원</a>
+            </div>
+        </div>
+    </footer>
 
     <script>
-        function askLocation() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                document.getElementById('data-display').innerText = `분석 완료: 위도 ${pos.coords.latitude.toFixed(2)} 지역의 산소 포화도 최적`;
+        // --- DATA OBJECT ---
+        const scenarioData = [
+            {
+                id: 1,
+                title: "초기 진입 및 랜딩",
+                items: ["헤더 (로고, 내비게이션 바)", "히어로 섹션 (슬로건, 버튼)", "서비스/제품 요약 소개"],
+                remark: "사이트의 정체성을 한눈에 보여주고 사용자의 클릭을 유도합니다.",
+                difficulty: 30
+            },
+            {
+                id: 2,
+                title: "사용자 인증 (선택)",
+                items: ["로그인/회원가입 폼", "소셜 로그인 연동", "비밀번호 찾기", "프로필 관리 페이지"],
+                remark: "개인화된 서비스를 위해 보안이 검증된 인증 시스템을 구축합니다.",
+                difficulty: 65
+            },
+            {
+                id: 3,
+                title: "주요 서비스 이용",
+                items: ["데이터 리스트/그리드 뷰", "상세 페이지 전환 로직", "복합 필터 및 검색 기능"],
+                remark: "사용자가 가장 오래 머무는 핵심 비즈니스 영역입니다.",
+                difficulty: 90
+            },
+            {
+                id: 4,
+                title: "인터랙션 및 저장",
+                items: ["데이터 입력 폼", "실시간 상태 피드백", "LocalStorage 연동", "서버 동기화"],
+                remark: "사용자의 동작을 데이터로 변환하고 저장하는 과정입니다.",
+                difficulty: 80
+            },
+            {
+                id: 5,
+                title: "부가 기능 및 설정",
+                items: ["다크모드/라이트모드", "다국어 지원(i18n)", "알림 센터 설정", "고객 상담 채널"],
+                remark: "사용자 편의성을 극대화하여 재방문율을 높입니다.",
+                difficulty: 50
+            },
+            {
+                id: 6,
+                title: "푸터 및 마무리",
+                items: ["사업자 정보/연락처", "소셜 미디어 링크", "약관 및 법적 공지", "사이트맵"],
+                remark: "신뢰도를 구축하고 사이트 이용을 깔끔하게 마무리합니다.",
+                difficulty: 20
+            }
+        ];
+
+        // --- DOM REFERENCES ---
+        const navWrapper = document.getElementById('nav-wrapper');
+        const displayTitle = document.getElementById('display-title');
+        const displayRemark = document.getElementById('display-remark');
+        const displayBadge = document.getElementById('display-id-badge');
+        const featureContainer = document.getElementById('feature-container');
+
+        // --- APP STATE ---
+        let currentId = 1;
+
+        // --- INITIALIZE ---
+        function init() {
+            renderNav();
+            updateContent(currentId);
+            initCharts();
+        }
+
+        // --- RENDER NAV ---
+        function renderNav() {
+            navWrapper.innerHTML = '';
+            scenarioData.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = `px-5 py-2.5 rounded-full text-sm font-bold border transition-all ${
+                    item.id === currentId ? 'active-step' : 'bg-white border-gray-200 text-gray-500 hover:border-teal-300'
+                }`;
+                btn.textContent = `${item.id}. ${item.title.split('(')[0]}`;
+                btn.onclick = () => {
+                    currentId = item.id;
+                    updateContent(item.id);
+                    renderNav();
+                };
+                navWrapper.appendChild(btn);
             });
         }
-        function sendPush() {
-            alert("알림: 현재 뇌파가 '안정' 상태입니다. 깊은 업무에 집중하세요!");
+
+        // --- UPDATE CONTENT ---
+        function updateContent(id) {
+            const data = scenarioData.find(d => d.id === id);
+            displayTitle.textContent = data.title;
+            displayRemark.textContent = data.remark;
+            displayBadge.textContent = `PHASE 0${data.id}`;
+
+            featureContainer.innerHTML = '';
+            data.items.forEach((feature, idx) => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-50 p-6 rounded-2xl border border-gray-100 card-hover flex flex-col justify-between';
+                card.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm text-sm">📍</span>
+                            <span class="text-[10px] font-black text-gray-300 uppercase tracking-widest">REQ-${id}-${idx+1}</span>
+                        </div>
+                        <h5 class="text-gray-800 font-bold leading-tight">${feature}</h5>
+                        <p class="text-xs text-gray-400">명세서에 정의된 필수 구현 항목입니다.</p>
+                    </div>
+                `;
+                featureContainer.appendChild(card);
+            });
         }
+
+        // --- CHARTS ---
+        function initCharts() {
+            const distCtx = document.getElementById('distChart').getContext('2d');
+            new Chart(distCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: scenarioData.map(d => d.title.split('(')[0]),
+                    datasets: [{
+                        data: scenarioData.map(d => d.items.length),
+                        backgroundColor: ['#CCFBF1', '#99F6E4', '#5EEAD4', '#2DD4BF', '#14B8A6', '#0F766E'],
+                        hoverOffset: 15,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 20, font: { family: 'Noto Sans KR', size: 10 } } }
+                    }
+                }
+            });
+
+            const diffCtx = document.getElementById('diffChart').getContext('2d');
+            new Chart(diffCtx, {
+                type: 'bar',
+                data: {
+                    labels: scenarioData.map(d => `P${d.id}`),
+                    datasets: [{
+                        label: 'Difficulty Score',
+                        data: scenarioData.map(d => d.difficulty),
+                        backgroundColor: '#111827',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 100, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        init();
     </script>
 </body>
 </html>

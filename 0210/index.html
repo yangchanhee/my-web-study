@@ -1,0 +1,1160 @@
+<!-- Chosen Palette: Wellness Emerald & Indigo Deep (Primary: #10B981, Secondary: #6366F1, Bg: #F8FAFC, Accent: #F59E0B) -->
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VitalLoop AI Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #F8FAFC;
+            color: #1E293B;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .active-tab { color: #6366F1 !important; }
+        .active-tab span:first-child { transform: translateY(-4px); transition: transform 0.2s; }
+
+        .view-section { display: none; animation: fadeIn 0.3s ease-out; }
+        .view-section.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pro-gradient {
+            background: linear-gradient(135deg, #6366F1 0%, #a855f7 100%);
+        }
+        
+        .sos-pulse {
+            animation: sos-anim 2s infinite;
+        }
+        @keyframes sos-anim {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .map-container {
+            background-color: #E2E8F0;
+            background-image: radial-gradient(#CBD5E1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #1E293B;
+            color: #fff;
+            text-align: center;
+            border-radius: 12px;
+            padding: 16px;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            bottom: 100px;
+            transform: translateX(-50%);
+            font-size: 14px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        #toast.show { visibility: visible; animation: fadein_toast 0.5s, fadeout_toast 0.5s 2.5s; }
+        @keyframes fadein_toast { from {bottom: 0; opacity: 0;} to {bottom: 100px; opacity: 1;} }
+        @keyframes fadeout_toast { from {bottom: 100px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+        
+        /* Quiz Styling */
+        .quiz-range {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #E2E8F0;
+            border-radius: 5px;
+            outline: none;
+        }
+        .quiz-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #6366F1;
+            cursor: pointer;
+        }
+
+        /* Input Controls */
+        .ctrl-btn {
+            width: 20px;
+            height: 20px;
+            background: #F1F5F9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #64748B;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .ctrl-btn:active { background: #CBD5E1; transform: scale(0.9); }
+
+        /* Checkbox for Mission & Meds */
+        .custom-chk:checked + label span {
+            background-color: #10B981;
+            border-color: #10B981;
+        }
+        .custom-chk:checked + label p {
+            text-decoration: line-through;
+            color: #94A3B8;
+        }
+
+        /* Calendar */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            text-align: center;
+            font-size: 12px;
+        }
+        .cal-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .cal-day.has-record { background-color: #EEF2FF; color: #6366F1; font-weight: bold; border: 1px solid #C7D2FE; }
+        .cal-day.today { background-color: #10B981; color: white; font-weight: bold; }
+        .cal-day:hover:not(.today) { background-color: #F8FAFC; }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="pb-24 overflow-x-hidden">
+
+    <div id="toast"></div>
+
+    <!-- [CART MODAL] -->
+    <div id="cart-modal" class="hidden fixed inset-0 z-[70] modal-overlay flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full sm:w-[400px] h-[80vh] sm:h-auto sm:rounded-3xl rounded-t-[2rem] p-6 flex flex-col shadow-2xl animate-fadeIn transform transition-transform duration-300 translate-y-0">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold flex items-center gap-2">🛒 장바구니 <span id="cart-count-badge" class="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full">0</span></h3>
+                <button onclick="toggleCart(false)" class="text-slate-400 p-2 text-xl">✕</button>
+            </div>
+            <div id="cart-items" class="flex-1 overflow-y-auto space-y-3 no-scrollbar mb-4">
+                <div class="text-center text-slate-400 py-10 text-xs">장바구니가 비어있습니다.</div>
+            </div>
+            <div class="border-t border-slate-100 pt-4 space-y-2">
+                <div class="flex justify-between text-xs text-slate-500">
+                    <span>상품 합계</span>
+                    <span id="cart-subtotal">0원</span>
+                </div>
+                <div class="flex justify-between text-xs text-emerald-600 font-bold">
+                    <span>⚡ 데일리 미션 할인 (<span id="discount-rate">0</span>%)</span>
+                    <span id="cart-discount">-0원</span>
+                </div>
+                <div class="flex justify-between text-lg font-black text-slate-900 mt-2">
+                    <span>최종 결제 금액</span>
+                    <span id="cart-total">0원</span>
+                </div>
+            </div>
+            <button onclick="processCheckout()" class="w-full py-4 mt-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-transform">결제하기</button>
+        </div>
+    </div>
+
+    <!-- [DOCTOR REPORT MODAL] -->
+    <div id="report-modal" class="hidden fixed inset-0 z-[70] modal-overlay flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md max-h-[85vh] rounded-[2rem] p-6 flex flex-col shadow-2xl animate-fadeIn overflow-hidden">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900">👨‍⚕️ 닥터 리포트</h3>
+                    <p class="text-[10px] text-slate-400">의료진 제출용 요약 데이터</p>
+                </div>
+                <button onclick="toggleReport(false)" class="bg-slate-100 p-2 rounded-full text-slate-500">✕</button>
+            </div>
+            
+            <div id="report-content" class="flex-1 overflow-y-auto space-y-6 no-scrollbar">
+                <!-- AI Generated Content -->
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-indigo-600 uppercase">Patient Summary</h4>
+                    <div class="bg-slate-50 p-4 rounded-xl text-xs text-slate-700 leading-relaxed" id="report-summary">
+                        데이터 분석 중...
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white border border-slate-100 p-3 rounded-xl text-center">
+                        <p class="text-[10px] text-slate-400">평균 심박수</p>
+                        <p class="text-xl font-black text-rose-500" id="report-hr">--</p>
+                    </div>
+                    <div class="bg-white border border-slate-100 p-3 rounded-xl text-center">
+                        <p class="text-[10px] text-slate-400">수면 효율</p>
+                        <p class="text-xl font-black text-indigo-500" id="report-sleep">--</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="text-xs font-bold text-slate-900">⚠️ 주요 증상 기록</h4>
+                    <ul id="report-symptoms" class="list-disc pl-4 text-xs text-slate-600 space-y-1">
+                        <li>기록된 특이 증상이 없습니다.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-slate-100">
+                <button onclick="showToast('PDF로 저장되었습니다 (시뮬레이션)')" class="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-xs">PDF 내보내기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP HEADER -->
+    <header id="app-header" class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 px-5 py-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <span class="pro-gradient text-white p-1 rounded-lg text-xs font-black px-2">PRO</span>
+            VitalLoop
+        </h1>
+        <div class="flex items-center gap-3">
+             <button onclick="triggerSOS()" class="bg-rose-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full sos-pulse shadow-rose-200 shadow-lg">SOS</button>
+             <button onclick="toggleCart(true)" class="relative p-1">
+                <span class="text-xl">🛒</span>
+                <span id="header-cart-badge" class="hidden absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] w-4 h-4 flex items-center justify-center rounded-full font-bold">0</span>
+            </button>
+        </div>
+    </header>
+
+    <main id="app-content" class="px-5 py-6">
+
+        <!-- [VIEW 1] HOME -->
+        <section id="view-home" class="view-section active space-y-5">
+            
+            <div class="flex justify-between items-center px-1">
+                <h2 class="text-lg font-bold">건강 브리핑</h2>
+                <div class="flex gap-2">
+                    <button onclick="toggleReport(true)" class="bg-white border border-slate-200 text-slate-600 text-[10px] px-3 py-1.5 rounded-full font-bold">👨‍⚕️ 리포트</button>
+                    <button onclick="saveDashboardData()" class="pro-gradient text-white text-[10px] px-3 py-1.5 rounded-full font-bold shadow-lg active:scale-95 transition-all">✨ AI 분석</button>
+                </div>
+            </div>
+
+            <!-- Pro Insight Card -->
+            <div id="ai-insight-card" class="hidden bg-white p-4 rounded-3xl border border-indigo-100 shadow-xl shadow-indigo-50/50 overflow-hidden relative animate-fadeIn">
+                <div class="absolute top-0 right-0 p-4 opacity-10">✨</div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-indigo-600 font-black text-xs uppercase tracking-tighter">Pro Intelligence</span>
+                </div>
+                <p id="ai-insight-text" class="text-xs text-slate-600 leading-relaxed font-medium italic"></p>
+                <div id="grounding-chips" class="mt-2 flex flex-wrap gap-1"></div>
+            </div>
+
+            <!-- Compact Stats Grid (3 Columns) -->
+            <div class="grid grid-cols-3 gap-2">
+                <!-- 1. Heart Rate -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-between h-24">
+                    <div class="flex items-center gap-1 w-full">
+                        <span class="text-sm">❤️</span>
+                        <span class="text-[9px] text-rose-500 font-bold ml-auto">심박수</span>
+                    </div>
+                    <div class="flex items-baseline gap-0.5">
+                        <input type="number" id="home-heartrate" value="72" class="bg-transparent text-lg font-black w-8 text-center outline-none p-0" onchange="saveLocally()">
+                        <span class="text-[8px] text-slate-400">bpm</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="ctrl-btn" onclick="adjustVal('home-heartrate', -1)">-</button>
+                        <button class="ctrl-btn" onclick="adjustVal('home-heartrate', 1)">+</button>
+                    </div>
+                </div>
+                <!-- 2. Sleep -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-between h-24">
+                    <div class="flex items-center gap-1 w-full">
+                        <span class="text-sm">🌙</span>
+                        <span class="text-[9px] text-indigo-500 font-bold ml-auto">수면</span>
+                    </div>
+                    <div class="flex items-baseline gap-0.5">
+                        <input type="number" id="home-sleep-h" value="7.5" step="0.5" class="bg-transparent text-lg font-black w-9 text-center outline-none p-0" onchange="saveLocally()">
+                        <span class="text-[8px] text-slate-400">h</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="ctrl-btn" onclick="adjustVal('home-sleep-h', -0.5)">-</button>
+                        <button class="ctrl-btn" onclick="adjustVal('home-sleep-h', 0.5)">+</button>
+                    </div>
+                </div>
+                <!-- 3. Stress -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-between h-24">
+                    <div class="flex items-center gap-1 w-full">
+                        <span class="text-sm">🤯</span>
+                        <span class="text-[9px] text-orange-500 font-bold ml-auto">스트레스</span>
+                    </div>
+                    <div class="flex items-baseline gap-0.5">
+                        <input type="number" id="home-stress" value="4" min="1" max="10" class="bg-transparent text-lg font-black w-6 text-center outline-none p-0" onchange="saveLocally()">
+                        <span class="text-[8px] text-slate-400">/10</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="ctrl-btn" onclick="adjustVal('home-stress', -1)">-</button>
+                        <button class="ctrl-btn" onclick="adjustVal('home-stress', 1)">+</button>
+                    </div>
+                </div>
+                <!-- 4. SpO2 -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-between h-24">
+                    <div class="flex items-center gap-1 w-full">
+                        <span class="text-sm">💨</span>
+                        <span class="text-[9px] text-sky-500 font-bold ml-auto">SpO2</span>
+                    </div>
+                    <div class="flex items-baseline gap-0.5">
+                        <input type="number" id="home-spo2" value="98" class="bg-transparent text-lg font-black w-8 text-center outline-none p-0" onchange="saveLocally()">
+                        <span class="text-[8px] text-slate-400">%</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="ctrl-btn" onclick="adjustVal('home-spo2', -1)">-</button>
+                        <button class="ctrl-btn" onclick="adjustVal('home-spo2', 1)">+</button>
+                    </div>
+                </div>
+                <!-- 5. Steps -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-between h-24">
+                    <div class="flex items-center gap-1 w-full">
+                        <span class="text-sm">👣</span>
+                        <span class="text-[9px] text-emerald-500 font-bold ml-auto">걸음</span>
+                    </div>
+                    <div class="flex items-baseline gap-0.5">
+                        <input type="number" id="home-steps" value="3500" class="bg-transparent text-lg font-black w-14 text-center outline-none p-0" onchange="saveLocally()">
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="ctrl-btn" onclick="adjustVal('home-steps', -100)">-</button>
+                        <button class="ctrl-btn" onclick="adjustVal('home-steps', 100)">+</button>
+                    </div>
+                </div>
+                <!-- 6. Body Temp -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-between h-24">
+                    <div class="flex items-center gap-1 w-full">
+                        <span class="text-sm">🌡️</span>
+                        <span class="text-[9px] text-rose-400 font-bold ml-auto">체온</span>
+                    </div>
+                    <div class="flex items-baseline gap-0.5">
+                        <input type="number" id="home-temp" value="36.5" step="0.1" class="bg-transparent text-lg font-black w-11 text-center outline-none p-0" onchange="saveLocally()">
+                        <span class="text-[8px] text-slate-400">°C</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="ctrl-btn" onclick="adjustVal('home-temp', -0.1)">-</button>
+                        <button class="ctrl-btn" onclick="adjustVal('home-temp', 0.1)">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medication Tracker (NEW) -->
+            <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-bold text-sm flex items-center gap-2"><span>💊</span> 복약 관리</h4>
+                    <button onclick="resetMeds()" class="text-[10px] text-slate-400 underline">초기화</button>
+                </div>
+                <div class="space-y-2" id="med-list">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="med1" class="hidden custom-chk" onchange="saveLocally()">
+                        <label for="med1" class="flex items-center gap-3 cursor-pointer w-full p-2 bg-slate-50 rounded-xl hover:bg-slate-100 transition-all">
+                            <span class="w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-white text-xs transition-colors">✓</span>
+                            <div class="flex-1">
+                                <p class="text-xs font-bold text-slate-700 transition-colors">아침 식후 약</p>
+                                <p class="text-[9px] text-slate-400">혈압약, 유산균</p>
+                            </div>
+                            <span class="text-xl">☀️</span>
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="med2" class="hidden custom-chk" onchange="saveLocally()">
+                        <label for="med2" class="flex items-center gap-3 cursor-pointer w-full p-2 bg-slate-50 rounded-xl hover:bg-slate-100 transition-all">
+                            <span class="w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center text-white text-xs transition-colors">✓</span>
+                            <div class="flex-1">
+                                <p class="text-xs font-bold text-slate-700 transition-colors">저녁 식후 약</p>
+                                <p class="text-[9px] text-slate-400">마그네슘</p>
+                            </div>
+                            <span class="text-xl">🌙</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Mission -->
+            <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <div class="flex justify-between items-center mb-3">
+                    <h4 class="font-bold text-sm flex items-center gap-2"><span>🎯</span> AI 데일리 미션</h4>
+                    <span class="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">할인율: <span id="mission-discount-display" class="text-indigo-600">0%</span></span>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="m1" class="hidden custom-chk" onchange="updateMissionDiscount(); saveLocally()">
+                        <label for="m1" class="flex items-center gap-3 cursor-pointer w-full">
+                            <span class="w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center text-white text-xs transition-colors">✓</span>
+                            <div class="flex-1">
+                                <p class="text-xs font-medium text-slate-700 transition-colors">물 한 컵 더 마시기</p>
+                                <p class="text-[9px] text-emerald-500 font-bold">+3% Store 할인</p>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="m2" class="hidden custom-chk" onchange="updateMissionDiscount(); saveLocally()">
+                        <label for="m2" class="flex items-center gap-3 cursor-pointer w-full">
+                            <span class="w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center text-white text-xs transition-colors">✓</span>
+                            <div class="flex-1">
+                                <p class="text-xs font-medium text-slate-700 transition-colors">10분간 스트레칭 하기</p>
+                                <p class="text-[9px] text-emerald-500 font-bold">+3% Store 할인</p>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="m3" class="hidden custom-chk" onchange="updateMissionDiscount(); saveLocally()">
+                        <label for="m3" class="flex items-center gap-3 cursor-pointer w-full">
+                            <span class="w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center text-white text-xs transition-colors">✓</span>
+                            <div class="flex-1">
+                                <p class="text-xs font-medium text-slate-700 transition-colors">비타민/영양제 챙겨먹기</p>
+                                <p class="text-[9px] text-emerald-500 font-bold">+4% Store 할인</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Symptom Memo (Voice enabled simulation) -->
+            <div class="bg-indigo-50 p-5 rounded-3xl border border-indigo-100 relative overflow-hidden">
+                <div class="absolute right-0 top-0 opacity-10 text-6xl transform translate-x-2 -translate-y-2">📝</div>
+                <h4 class="font-bold text-sm text-indigo-900 mb-2">증상 퀵 메모 & 보이스</h4>
+                <div class="flex gap-2">
+                    <button onclick="startVoiceInput()" class="bg-indigo-200 text-indigo-700 p-2 rounded-xl text-lg hover:bg-indigo-300">🎙️</button>
+                    <input type="text" id="symptom-input" placeholder="증상을 입력하거나 마이크를 누르세요..." class="flex-1 bg-white border-none rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500">
+                    <button onclick="analyzeSymptom()" class="bg-indigo-600 text-white px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap">분석</button>
+                </div>
+                <div id="symptom-result" class="hidden mt-3 bg-white/80 p-3 rounded-xl border border-indigo-100 text-[10px] text-indigo-800 animate-fadeIn"></div>
+            </div>
+
+            <!-- Scientific Diagnosis Section -->
+            <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg space-y-4 relative overflow-hidden">
+                <div class="flex items-center justify-between z-10 relative">
+                    <h4 class="font-bold text-sm flex items-center gap-2"><span>🧬</span> 과학적 컨디션 진단</h4>
+                </div>
+
+                <div id="quiz-container" class="py-2 transition-all duration-500 space-y-4">
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-bold text-slate-600">
+                            <label>수면의 질</label>
+                            <span id="val-q1" class="text-indigo-600">보통 (3)</span>
+                        </div>
+                        <input type="range" id="q-sleep-qual" min="1" max="5" value="3" class="quiz-range" oninput="updateRangeLabel('val-q1', this.value, ['최악', '나쁨', '보통', '좋음', '최상'])">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-bold text-slate-600">
+                            <label>신체 피로도</label>
+                            <span id="val-q2" class="text-indigo-600">약간 (2)</span>
+                        </div>
+                        <input type="range" id="q-body-pain" min="1" max="5" value="2" class="quiz-range" oninput="updateRangeLabel('val-q2', this.value, ['없음', '약간', '보통', '심함', '매우 심함'])">
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-bold text-slate-600">
+                            <label>정신적 스트레스</label>
+                            <span id="val-q3" class="text-indigo-600">보통 (3)</span>
+                        </div>
+                        <input type="range" id="q-mental-stress" min="1" max="5" value="3" class="quiz-range" oninput="updateRangeLabel('val-q3', this.value, ['평온', '약간', '보통', '높음', '매우 높음'])">
+                    </div>
+                    <button onclick="submitScientificQuiz()" class="w-full py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-indigo-700 transition-colors">AI 생체 리듬 분석 시작</button>
+                </div>
+
+                <div id="chart-container" class="hidden transition-all duration-500">
+                    <div class="flex items-center gap-2 mb-2 bg-indigo-50 p-2 rounded-lg">
+                        <span class="text-lg">🔬</span>
+                        <p id="chart-reasoning" class="text-[10px] text-indigo-800 leading-tight">분석 중...</p>
+                    </div>
+                    <div class="h-40">
+                        <canvas id="homeChart"></canvas>
+                    </div>
+                    <button onclick="resetQuiz()" class="text-[10px] text-slate-400 underline text-center w-full mt-3">다시 진단하기</button>
+                </div>
+            </div>
+
+            <!-- Pro AI Advisor Chat (Minimal) -->
+            <div class="bg-slate-900 p-5 rounded-3xl shadow-xl space-y-3">
+                <div class="flex items-center justify-between">
+                    <h4 class="font-bold text-xs text-white">💬 Pro 건강 비서</h4>
+                    <span class="text-[8px] text-indigo-400 font-bold uppercase border border-indigo-400/30 px-1.5 py-0.5 rounded">Grounding On</span>
+                </div>
+                <div id="chat-history" class="max-h-32 overflow-y-auto space-y-2 text-[10px] no-scrollbar pr-1"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="ai-chat-input" placeholder="궁금한 점을 물어보세요..." class="flex-1 bg-white/10 border-none rounded-xl px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500">
+                    <button onclick="askGeminiPro()" class="pro-gradient text-white px-3 py-2 rounded-xl text-xs font-bold">전송</button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- [VIEW 2] THERAPY -->
+        <section id="view-therapy" class="view-section space-y-6">
+            <h2 class="text-2xl font-bold">Pro 테라피 맵</h2>
+            <div class="space-y-4">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <h4 class="font-bold text-sm mb-2 text-slate-700">"지금 가보고 싶은 힐링 테마를 적어주세요."</h4>
+                    <textarea id="mood-input" placeholder="서울 근교의 조용한 숲길이나 하천 산책로가 보고 싶어요..." class="w-full bg-slate-50 border-none rounded-xl p-4 text-xs h-24 outline-none resize-none focus:ring-1 focus:ring-indigo-500 mb-3"></textarea>
+                    <button onclick="generateProTherapy()" class="w-full py-4 pro-gradient text-white rounded-2xl font-bold text-xs shadow-xl">✨ 실시간 힐링 장소 검색</button>
+                </div>
+                
+                <div id="therapy-plan-box" class="hidden space-y-5">
+                    <div class="bg-white p-3 rounded-3xl border border-slate-100 shadow-sm">
+                        <div class="map-container w-full h-56 rounded-2xl mb-4 overflow-hidden border border-slate-50 relative">
+                            <div id="map-markers-container" class="relative w-full h-full"></div>
+                        </div>
+                        <div id="therapy-list" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- [VIEW 3] FOOD LENS & CALENDAR -->
+        <section id="view-camera" class="view-section space-y-6">
+            <h2 class="text-2xl font-bold">AI 푸드 렌즈 & 캘린더</h2>
+            
+            <div class="bg-slate-900 rounded-[2.5rem] overflow-hidden flex flex-col items-center justify-center text-white p-8 text-center shadow-2xl relative">
+                <div id="cam-idle" class="space-y-4 w-full">
+                    <div class="text-5xl mb-2">📸</div>
+                    <p class="font-bold text-lg leading-tight mb-4">식단을 촬영하여<br>기록하세요</p>
+                    <div class="relative w-full">
+                        <label for="camera-input" class="block w-full py-4 pro-gradient rounded-full font-bold shadow-xl cursor-pointer hover:scale-105 transition-transform">
+                            카메라 열기
+                        </label>
+                        <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden" onchange="handleImageUpload(event)">
+                    </div>
+                </div>
+
+                <div id="cam-loading" class="hidden ai-pulse text-center py-10">
+                    <div class="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="font-bold text-indigo-400">사진 분석 및 기록 중...</p>
+                </div>
+
+                <div id="cam-done" class="hidden w-full text-left space-y-4 animate-fadeIn">
+                    <img id="food-preview" src="" class="w-full h-32 object-cover rounded-xl mb-2 border border-white/20">
+                    <div class="bg-white/10 p-4 rounded-2xl backdrop-blur-xl border border-white/20">
+                        <h4 id="cam-food-name" class="font-bold text-indigo-300 text-lg">분석 완료</h4>
+                        <p id="cam-food-advice" class="text-xs text-slate-300 mt-1 mb-3 leading-relaxed"></p>
+                        <div id="cam-stats" class="grid grid-cols-2 gap-2"></div>
+                    </div>
+                    <button onclick="resetCamera()" class="w-full py-3 bg-white/10 rounded-xl text-xs font-bold">닫기</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="font-bold text-sm">📅 식단 기록 달력</h4>
+                    <span class="text-xs text-slate-400" id="current-month">2023.10</span>
+                </div>
+                <div class="calendar-grid mb-2">
+                    <div class="text-slate-400 text-[10px]">일</div>
+                    <div class="text-slate-400 text-[10px]">월</div>
+                    <div class="text-slate-400 text-[10px]">화</div>
+                    <div class="text-slate-400 text-[10px]">수</div>
+                    <div class="text-slate-400 text-[10px]">목</div>
+                    <div class="text-slate-400 text-[10px]">금</div>
+                    <div class="text-slate-400 text-[10px]">토</div>
+                </div>
+                <div id="calendar-days" class="calendar-grid"></div>
+                <div id="day-log-viewer" class="mt-4 pt-4 border-t border-slate-50 hidden">
+                    <h5 class="font-bold text-xs mb-2 text-indigo-600">🍽️ 기록된 식단</h5>
+                    <div id="day-log-list" class="space-y-2 text-[11px] text-slate-600"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- [VIEW 4] MARKET -->
+        <section id="view-market" class="view-section space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">바이탈 스토어</h2>
+                <div id="store-discount-badge" class="hidden px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-xs font-bold">
+                    ⚡ <span id="store-discount-val">0</span>% 할인 적용 중
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 pb-10" id="market-grid"></div>
+        </section>
+
+        <!-- [VIEW 5] SETTINGS -->
+        <section id="view-settings" class="view-section space-y-8">
+            <h2 class="text-2xl font-bold">프로필 & 상세 설정</h2>
+            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-5">
+                <h4 class="text-sm font-bold text-indigo-600 border-b pb-2">기본 정보</h4>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-400 font-bold uppercase">키 (cm)</label>
+                        <input type="number" id="user-height" value="175" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-400 font-bold uppercase">몸무게 (kg)</label>
+                        <input type="number" id="user-weight" value="70" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                    </div>
+                </div>
+                
+                <h4 class="text-sm font-bold text-indigo-600 border-b pb-2 mt-2">상세 정보</h4>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-400 font-bold uppercase">성별</label>
+                        <select id="user-gender" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                            <option value="male">남성</option>
+                            <option value="female">여성</option>
+                            <option value="other">기타</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-400 font-bold uppercase">나이</label>
+                        <input type="number" id="user-age" value="30" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[10px] text-slate-400 font-bold uppercase">활동량 수준</label>
+                    <select id="user-activity" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                        <option value="sedentary">적음 (사무직 등)</option>
+                        <option value="moderate">보통 (규칙적 운동)</option>
+                        <option value="active">많음 (육체 노동/고강도 운동)</option>
+                    </select>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[10px] text-slate-400 font-bold uppercase">지역</label>
+                    <select id="user-location" class="w-full bg-slate-50 border-none rounded-xl p-3 text-sm">
+                        <option value="seoul">서울특별시</option>
+                        <option value="gyeonggi">경기도</option>
+                        <option value="busan">부산광역시</option>
+                        <option value="jeju">제주도</option>
+                    </select>
+                </div>
+                
+                <button onclick="resetAllData()" class="w-full py-3 bg-rose-50 text-rose-600 rounded-xl font-bold text-xs mt-4">데이터 초기화 (개발용)</button>
+            </div>
+            <button onclick="saveSettings()" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold">설정 저장</button>
+        </section>
+
+    </main>
+
+    <!-- Navigation -->
+    <nav id="app-nav" class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 h-20 flex items-center justify-around z-50 px-2">
+        <button onclick="switchView('home')" id="nav-home" class="nav-item flex flex-col items-center gap-1 active-tab flex-1">
+            <span class="text-xl">🏠</span>
+            <span class="text-[9px] font-bold">브리핑</span>
+        </button>
+        <button onclick="switchView('therapy')" id="nav-therapy" class="nav-item flex flex-col items-center gap-1 text-slate-300 flex-1">
+            <span class="text-xl">📍</span>
+            <span class="text-[9px] font-bold">테라피맵</span>
+        </button>
+        <button onclick="switchView('camera')" id="nav-camera" class="nav-item flex flex-col items-center gap-1 text-slate-300 flex-1">
+            <span class="text-xl">🥗</span>
+            <span class="text-[9px] font-bold">푸드렌즈</span>
+        </button>
+        <button onclick="switchView('market')" id="nav-market" class="nav-item flex flex-col items-center gap-1 text-slate-300 flex-1">
+            <span class="text-xl">🛒</span>
+            <span class="text-[9px] font-bold">스토어</span>
+        </button>
+        <button onclick="switchView('settings')" id="nav-settings" class="nav-item flex flex-col items-center gap-1 text-slate-300 flex-1">
+            <span class="text-xl">⚙️</span>
+            <span class="text-[9px] font-bold">설정</span>
+        </button>
+    </nav>
+
+    <script>
+        const apiKey = ""; 
+        const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+
+        // State (Will be loaded from localStorage)
+        let userData = { 
+            height: 175, weight: 70, location: 'seoul', 
+            gender: 'male', age: 30, activity: 'moderate',
+            heartrate: 72, sleepH: 7.5, stress: 4, spo2: 98, steps: 3500, temp: 36.5 
+        };
+        let foodLogs = {};
+        let missionStatus = { m1: false, m2: false, m3: false };
+        let medStatus = { med1: false, med2: false };
+        let symptomsLog = [];
+        let chartInstance = null;
+        let discountRate = 0; 
+        let cart = []; 
+        let products = [
+            { id: 1, name: "Pro 맞춤 멀티비타민", price: 52000, emoji: "🧪" },
+            { id: 2, name: "저분자 콜라겐 (Pro)", price: 34000, emoji: "💧" },
+            { id: 3, name: "유기농 ABC 클렌즈", price: 18000, emoji: "🥤" },
+            { id: 4, name: "프리미엄 요가매트", price: 45000, emoji: "🧶" },
+            { id: 5, name: "스마트 덤벨 세트", price: 89000, emoji: "💪" },
+            { id: 6, name: "수면 안대 & 귀마개", price: 12000, emoji: "😴" }
+        ];
+
+        // --- CORE AI FUNCTIONS ---
+        async function callGeminiJSON(prompt, schema) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json", responseSchema: schema }
+            };
+            try {
+                const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+                const data = await response.json();
+                return JSON.parse(data.candidates[0].content.parts[0].text);
+            } catch (e) { console.error(e); return null; }
+        }
+
+        async function callGeminiPro(prompt, systemInstruction = "전문적인 헬스케어 AI입니다.") {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                tools: [{ "google_search": {} }]
+            };
+            try {
+                const response = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+                const data = await response.json();
+                return {
+                    text: data.candidates?.[0]?.content?.parts?.[0]?.text,
+                    citations: data.candidates?.[0]?.groundingMetadata?.groundingAttributions || []
+                };
+            } catch (e) { return { text: "일시적 오류 발생", citations: [] }; }
+        }
+
+        // --- STORAGE & INIT ---
+        function saveLocally() {
+            localStorage.setItem('vital_userData', JSON.stringify(userData));
+            localStorage.setItem('vital_foodLogs', JSON.stringify(foodLogs));
+            localStorage.setItem('vital_missionStatus', JSON.stringify({
+                m1: document.getElementById('m1').checked,
+                m2: document.getElementById('m2').checked,
+                m3: document.getElementById('m3').checked
+            }));
+            localStorage.setItem('vital_medStatus', JSON.stringify({
+                med1: document.getElementById('med1').checked,
+                med2: document.getElementById('med2').checked
+            }));
+            localStorage.setItem('vital_symptoms', JSON.stringify(symptomsLog));
+        }
+
+        function loadFromStorage() {
+            const savedUser = localStorage.getItem('vital_userData');
+            if(savedUser) userData = JSON.parse(savedUser);
+
+            const savedFood = localStorage.getItem('vital_foodLogs');
+            if(savedFood) foodLogs = JSON.parse(savedFood);
+
+            const savedMissions = localStorage.getItem('vital_missionStatus');
+            if(savedMissions) {
+                const status = JSON.parse(savedMissions);
+                document.getElementById('m1').checked = status.m1;
+                document.getElementById('m2').checked = status.m2;
+                document.getElementById('m3').checked = status.m3;
+                updateMissionDiscount(); // Recalc discount
+            }
+
+            const savedMeds = localStorage.getItem('vital_medStatus');
+            if(savedMeds) {
+                const status = JSON.parse(savedMeds);
+                document.getElementById('med1').checked = status.med1;
+                document.getElementById('med2').checked = status.med2;
+            }
+
+            const savedSymp = localStorage.getItem('vital_symptoms');
+            if(savedSymp) symptomsLog = JSON.parse(savedSymp);
+
+            // Populate Input Fields
+            document.getElementById('home-heartrate').value = userData.heartrate;
+            document.getElementById('home-sleep-h').value = userData.sleepH;
+            document.getElementById('home-stress').value = userData.stress;
+            document.getElementById('home-spo2').value = userData.spo2;
+            document.getElementById('home-steps').value = userData.steps;
+            document.getElementById('home-temp').value = userData.temp;
+            
+            // Settings Fields
+            document.getElementById('user-height').value = userData.height;
+            document.getElementById('user-weight').value = userData.weight;
+            document.getElementById('user-gender').value = userData.gender;
+            document.getElementById('user-age').value = userData.age;
+            document.getElementById('user-activity').value = userData.activity;
+            document.getElementById('user-location').value = userData.location;
+        }
+        
+        function resetAllData() {
+            if(confirm("모든 데이터를 초기화하시겠습니까?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        function resetMeds() {
+            document.getElementById('med1').checked = false;
+            document.getElementById('med2').checked = false;
+            saveLocally();
+            showToast("복약 체크가 초기화되었습니다.");
+        }
+
+        // --- NEW FEATURES: SOS & VOICE ---
+        function triggerSOS() {
+            if(confirm("🚨 긴급 SOS 신호를 보내시겠습니까?\n(실제 119 연결은 모바일 환경에서만 작동합니다.)")) {
+                // window.location.href = "tel:119"; // In real mobile app
+                showToast("🆘 비상 연락처로 위치와 상태가 전송되었습니다.");
+            }
+        }
+
+        function startVoiceInput() {
+            showToast("🎙️ 말씀해주세요... (음성 인식 시뮬레이션)");
+            setTimeout(() => {
+                const simulatedText = "오늘 아침부터 소화가 안되고 열이 좀 나는 것 같아";
+                document.getElementById('symptom-input').value = simulatedText;
+                showToast("인식됨: " + simulatedText);
+            }, 1500);
+        }
+
+        // --- DOCTOR REPORT ---
+        function toggleReport(show) {
+            const modal = document.getElementById('report-modal');
+            if(show) {
+                modal.classList.remove('hidden');
+                generateDoctorReport();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        async function generateDoctorReport() {
+            document.getElementById('report-hr').innerText = userData.heartrate + " bpm";
+            document.getElementById('report-sleep').innerText = userData.sleepH + " h";
+            
+            // Symptoms list
+            const sympList = document.getElementById('report-symptoms');
+            if(symptomsLog.length > 0) {
+                sympList.innerHTML = symptomsLog.map(s => `<li>${s.date}: ${s.text}</li>`).join('');
+            } else {
+                sympList.innerHTML = "<li>최근 기록된 특이 증상이 없습니다.</li>";
+            }
+
+            const prompt = `
+                환자 정보: ${userData.age}세 ${userData.gender}, ${userData.height}cm/${userData.weight}kg.
+                최근 상태: 심박 ${userData.heartrate}, 수면 ${userData.sleepH}, 스트레스 ${userData.stress}/10.
+                복용 약물: 혈압약(가정).
+                이 데이터를 바탕으로 의사에게 전달할 간결한 '환자 상태 요약(Patient Summary)'을 3문장으로 작성해줘. 전문 용어 사용.
+            `;
+            const { text } = await callGeminiPro(prompt);
+            document.getElementById('report-summary').innerText = text;
+        }
+
+        // --- UI HELPERS ---
+        function showToast(msg) {
+            const x = document.getElementById("toast");
+            x.innerText = msg;
+            x.className = "show";
+            setTimeout(() => x.className = "", 3000);
+        }
+
+        function switchView(viewName) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            document.getElementById(`view-${viewName}`).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-tab', 'text-slate-300'));
+            document.getElementById(`nav-${viewName}`).classList.add('active-tab');
+            window.scrollTo(0,0);
+        }
+
+        function adjustVal(id, amount) {
+            const el = document.getElementById(id);
+            let val = parseFloat(el.value) + amount;
+            if(el.min && val < parseFloat(el.min)) val = parseFloat(el.min);
+            if(el.max && val > parseFloat(el.max)) val = parseFloat(el.max);
+            
+            if(amount % 1 !== 0) el.value = val.toFixed(1);
+            else el.value = val;
+            saveLocally(); // Auto save on adjust
+        }
+
+        function updateRangeLabel(labelId, val, texts) {
+            document.getElementById(labelId).innerText = `${texts[val-1]} (${val})`;
+        }
+
+        // --- MISSION & DISCOUNT ---
+        function updateMissionDiscount() {
+            let count = 0;
+            if(document.getElementById('m1').checked) count += 3;
+            if(document.getElementById('m2').checked) count += 3;
+            if(document.getElementById('m3').checked) count += 4;
+            
+            discountRate = count;
+            document.getElementById('mission-discount-display').innerText = `${discountRate}%`;
+            
+            if(discountRate > 0) {
+                document.getElementById('store-discount-badge').classList.remove('hidden');
+                document.getElementById('store-discount-val').innerText = discountRate;
+            } else {
+                document.getElementById('store-discount-badge').classList.add('hidden');
+            }
+            renderCart();
+        }
+
+        // --- CART SYSTEM ---
+        function toggleCart(show) {
+            const modal = document.getElementById('cart-modal');
+            if(show) { modal.classList.remove('hidden'); renderCart(); } else { modal.classList.add('hidden'); }
+        }
+
+        function addToCart(id) {
+            const product = products.find(p => p.id === id);
+            const existing = cart.find(item => item.id === id);
+            if(existing) existing.qty++; else cart.push({ ...product, qty: 1 });
+            updateCartBadge();
+            showToast("장바구니에 담겼습니다.");
+        }
+
+        function updateCartBadge() {
+            const totalQty = cart.reduce((acc, item) => acc + item.qty, 0);
+            const headerBadge = document.getElementById('header-cart-badge');
+            const modalBadge = document.getElementById('cart-count-badge');
+            modalBadge.innerText = totalQty;
+            headerBadge.innerText = totalQty;
+            if(totalQty > 0) headerBadge.classList.remove('hidden'); else headerBadge.classList.add('hidden');
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            if(cart.length === 0) {
+                container.innerHTML = `<div class="text-center text-slate-400 py-10 text-xs">장바구니가 비어있습니다.</div>`;
+                document.getElementById('cart-subtotal').innerText = "0원";
+                document.getElementById('cart-discount').innerText = "0원";
+                document.getElementById('cart-total').innerText = "0원";
+                document.getElementById('discount-rate').innerText = discountRate;
+                return;
+            }
+            let subtotal = 0;
+            container.innerHTML = cart.map(item => {
+                subtotal += item.price * item.qty;
+                return `
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-2xl">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">${item.emoji}</span>
+                        <div><h5 class="text-xs font-bold text-slate-700">${item.name}</h5><p class="text-[10px] text-slate-400">${item.price.toLocaleString()}원</p></div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="changeQty(${item.id}, -1)" class="w-6 h-6 bg-white rounded-full text-slate-500 shadow-sm">-</button>
+                        <span class="text-xs font-bold w-4 text-center">${item.qty}</span>
+                        <button onclick="changeQty(${item.id}, 1)" class="w-6 h-6 bg-white rounded-full text-slate-500 shadow-sm">+</button>
+                    </div>
+                </div>`;
+            }).join('');
+            const discountAmount = Math.floor(subtotal * (discountRate / 100));
+            document.getElementById('cart-subtotal').innerText = `${subtotal.toLocaleString()}원`;
+            document.getElementById('discount-rate').innerText = discountRate;
+            document.getElementById('cart-discount').innerText = `-${discountAmount.toLocaleString()}원`;
+            document.getElementById('cart-total').innerText = `${(subtotal - discountAmount).toLocaleString()}원`;
+        }
+
+        function changeQty(id, delta) {
+            const idx = cart.findIndex(item => item.id === id);
+            if(idx === -1) return;
+            cart[idx].qty += delta;
+            if(cart[idx].qty <= 0) cart.splice(idx, 1);
+            updateCartBadge();
+            renderCart();
+        }
+
+        function processCheckout() {
+            if(cart.length === 0) return showToast("장바구니가 비어있습니다.");
+            if(confirm("결제하시겠습니까?")) {
+                alert("결제 완료! 배송이 시작됩니다.");
+                cart = [];
+                updateCartBadge();
+                toggleCart(false);
+            }
+        }
+
+        function buyNow(id) { addToCart(id); toggleCart(true); }
+
+        function renderMarket() {
+            document.getElementById('market-grid').innerHTML = products.map(p => `
+                <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm active:scale-95 transition-all">
+                    <div class="bg-slate-50 aspect-square rounded-2xl mb-3 flex items-center justify-center text-3xl">${p.emoji}</div>
+                    <h5 class="text-[10px] font-bold truncate text-center">${p.name}</h5>
+                    <p class="text-xs font-black mt-1 text-center">${p.price.toLocaleString()}원</p>
+                    <div class="flex gap-1 mt-2">
+                        <button onclick="addToCart(${p.id})" class="flex-1 py-2 bg-slate-100 text-slate-600 text-[9px] rounded-xl font-bold">담기</button>
+                        <button onclick="buyNow(${p.id})" class="flex-1 py-2 bg-slate-900 text-white text-[9px] rounded-xl font-bold">구매</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- SYMPTOM & LOGGING ---
+        async function analyzeSymptom() {
+            const input = document.getElementById('symptom-input');
+            const resultBox = document.getElementById('symptom-result');
+            const symptom = input.value.trim();
+            if(!symptom) return;
+
+            // Log it
+            const today = new Date().toLocaleDateString();
+            symptomsLog.push({ date: today, text: symptom });
+            saveLocally();
+
+            resultBox.classList.remove('hidden');
+            resultBox.innerText = "분석 중...";
+            const prompt = `증상: "${symptom}". 이 증상의 원인과 대처법 1문장 요약.`;
+            const { text } = await callGeminiPro(prompt);
+            resultBox.innerHTML = `<strong>💡 AI 조언:</strong> ${text}`;
+            input.value = "";
+        }
+
+        // --- SCIENTIFIC CHART ---
+        async function submitScientificQuiz() {
+            const sleepQual = document.getElementById('q-sleep-qual').value;
+            const bodyPain = document.getElementById('q-body-pain').value;
+            const mentalStress = document.getElementById('q-mental-stress').value;
+            
+            showToast("🧠 Gemini Pro가 생체 리듬을 계산합니다...");
+            const schema = { type: "OBJECT", properties: { reasoning: { type: "STRING" }, dataPoints: { type: "ARRAY", items: { type: "NUMBER" } } } };
+            const prompt = `상태: 수면 ${userData.sleepH}h(질:${sleepQual}/5), 통증 ${bodyPain}/5, 스트레스 ${mentalStress}/5. 생체리듬 기반 오늘 활력도(0-100) 6개 포인트.`;
+            const result = await callGeminiJSON(prompt, schema);
+            if (result) {
+                document.getElementById('quiz-container').classList.add('hidden');
+                document.getElementById('chart-container').classList.remove('hidden');
+                document.getElementById('chart-reasoning').innerText = result.reasoning;
+                renderHomeChart(['06시', '09시', '12시', '15시', '18시', '21시'], result.dataPoints);
+            }
+        }
+        function resetQuiz() {
+            document.getElementById('quiz-container').classList.remove('hidden');
+            document.getElementById('chart-container').classList.add('hidden');
+        }
+        function renderHomeChart(labels, data) {
+            const ctx = document.getElementById('homeChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: [{ label: '활력도', data: data, borderColor: '#6366F1', borderWidth: 2, tension: 0.4, fill: true, backgroundColor: 'rgba(99, 102, 241, 0.1)' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false, min: 0, max: 100 }, x: { grid: { display: false } } } }
+            });
+        }
+
+        // --- FOOD LENS ---
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) { document.getElementById('food-preview').src = e.target.result; }
+            reader.readAsDataURL(file);
+
+            document.getElementById('cam-idle').classList.add('hidden');
+            document.getElementById('cam-loading').classList.remove('hidden');
+            
+            const schema = { type: "OBJECT", properties: { foodName: { type: "STRING" }, calories: { type: "NUMBER" }, carbs: { type: "STRING" }, protein: { type: "STRING" }, fat: { type: "STRING" }, advice: { type: "STRING" } } };
+            const result = await callGeminiJSON("랜덤 식단 분석 결과", schema);
+
+            setTimeout(() => {
+                document.getElementById('cam-loading').classList.add('hidden');
+                document.getElementById('cam-done').classList.remove('hidden');
+                if (result) {
+                    document.getElementById('cam-food-name').innerText = result.foodName;
+                    document.getElementById('cam-food-advice').innerText = result.advice;
+                    document.getElementById('cam-stats').innerHTML = `<div class="bg-white/5 p-2 rounded"><p class="text-[9px] text-slate-400">칼로리</p><p class="font-bold">${result.calories}kcal</p></div>...`;
+                    
+                    const today = new Date();
+                    const dateKey = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+                    if(!foodLogs[dateKey]) foodLogs[dateKey] = [];
+                    foodLogs[dateKey].push({ name: result.foodName, kcal: result.calories });
+                    saveLocally();
+                    renderCalendar();
+                }
+            }, 2000);
+        }
+        function resetCamera() {
+            document.getElementById('camera-input').value = "";
+            document.getElementById('cam-idle').classList.remove('hidden');
+            document.getElementById('cam-done').classList.add('hidden');
+        }
+
+        function renderCalendar() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            document.getElementById('current-month').innerText = `${year}.${month + 1}`;
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const container = document.getElementById('calendar-days');
+            container.innerHTML = '';
+            for(let i=0; i<firstDay; i++) container.innerHTML += `<div></div>`;
+            for(let d=1; d<=daysInMonth; d++) {
+                const dateKey = `${year}-${month+1}-${d}`;
+                const hasRecord = foodLogs[dateKey] && foodLogs[dateKey].length > 0;
+                let className = "cal-day" + (d === now.getDate() ? " today" : "") + (hasRecord ? " has-record" : "");
+                container.innerHTML += `<div class="${className}" onclick="showLog('${dateKey}')">${d}</div>`;
+            }
+        }
+        function showLog(dateKey) {
+            const viewer = document.getElementById('day-log-viewer');
+            const list = document.getElementById('day-log-list');
+            if(foodLogs[dateKey]) {
+                viewer.classList.remove('hidden');
+                list.innerHTML = foodLogs[dateKey].map(log => `<div class="flex justify-between border-b border-slate-50 pb-1"><span>${log.name}</span><span class="font-bold">${log.kcal}kcal</span></div>`).join('');
+            } else { viewer.classList.add('hidden'); }
+        }
+
+        async function saveDashboardData() {
+            showToast("✨ Pro 분석 중...");
+            const prompt = `건강 데이터: 심박수 ${userData.heartrate}, 수면 ${userData.sleepH}h. 종합 분석 및 추천 행동 1가지.`;
+            const { text, citations } = await callGeminiPro(prompt);
+            document.getElementById('ai-insight-card').classList.remove('hidden');
+            document.getElementById('ai-insight-text').innerText = text;
+            const chips = document.getElementById('grounding-chips');
+            chips.innerHTML = citations.slice(0, 3).map(c => `<a href="${c.web?.uri}" target="_blank" class="text-[8px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">🔗 ${c.web?.title?.substring(0, 15)}...</a>`).join('');
+        }
+
+        async function askGeminiPro() {
+            const input = document.getElementById('ai-chat-input');
+            const history = document.getElementById('chat-history');
+            const msg = input.value.trim();
+            if(!msg) return;
+            const userDiv = document.createElement('div');
+            userDiv.className = "text-right ml-auto bg-indigo-600 text-white p-2 rounded-xl text-xs max-w-[85%]";
+            userDiv.innerText = msg;
+            history.appendChild(userDiv);
+            input.value = "";
+            const { text } = await callGeminiPro(msg);
+            const aiDiv = document.createElement('div');
+            aiDiv.className = "text-left bg-white/10 text-slate-300 p-2 rounded-xl text-xs max-w-[85%]";
+            aiDiv.innerText = text;
+            history.appendChild(aiDiv);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        async function generateProTherapy() {
+            const input = document.getElementById('mood-input').value;
+            if(!input) return showToast("테마를 입력해주세요.");
+            showToast("📍 힐링 장소 탐색 중...");
+            const schema = { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING" }, category: { type: "STRING" }, desc: { type: "STRING" }, lat: { type: "NUMBER" }, lng: { type: "NUMBER" }, icon: { type: "STRING" } } } };
+            const prompt = `위치: ${userData.location}, 테마: "${input}". 한국 힐링 스팟 4곳.`;
+            const spots = await callGeminiJSON(prompt, schema);
+            if(spots) {
+                document.getElementById('therapy-plan-box').classList.remove('hidden');
+                document.getElementById('therapy-list').innerHTML = spots.map(s => `<div class="p-3 rounded-2xl bg-white border border-slate-100 flex gap-3 shadow-sm"><div class="text-xl">${s.icon}</div><div><h5 class="font-bold text-xs text-slate-800">${s.name}</h5><p class="text-[10px] text-slate-400 leading-snug">${s.desc}</p></div></div>`).join('');
+                document.getElementById('map-markers-container').innerHTML = spots.map(s => `<div class="absolute" style="top: ${s.lat}%; left: ${s.lng}%;"><div class="text-indigo-600 text-lg">📍</div></div>`).join('');
+            }
+        }
+
+        function saveSettings() {
+            userData.height = document.getElementById('user-height').value;
+            userData.weight = document.getElementById('user-weight').value;
+            userData.gender = document.getElementById('user-gender').value;
+            userData.age = document.getElementById('user-age').value;
+            userData.activity = document.getElementById('user-activity').value;
+            userData.location = document.getElementById('user-location').value;
+            saveLocally();
+            showToast("✅ 설정 저장 완료");
+            setTimeout(() => switchView('home'), 1000);
+        }
+
+        window.onload = () => { 
+            loadFromStorage();
+            renderMarket(); 
+            renderCalendar(); 
+        };
+    </script>
+</body>
+</html>
