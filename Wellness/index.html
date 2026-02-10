@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellness OS | Professional Edition</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --p: #2E8B57; --p-dark: #1e5e3a; --p-light: #e8f5e9; --bg: #f5f7fa; --white: #ffffff; --border: 1px solid #e1e4e8; --shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        * { box-sizing: border-box; outline: none; }
+        body, html { margin: 0; padding: 0; font-family: 'Noto Sans KR', sans-serif; background: var(--bg); height: 100vh; overflow: hidden; color: #2c3e50; }
+
+        /* [1] 인트로 모달 */
+        #introModal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(20, 30, 25, 0.92); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px);
+        }
+        .modal-card { background: var(--white); padding: 50px; border-radius: 24px; width: 600px; text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.4); }
+        .mode-btn { 
+            width: 100%; padding: 20px; margin: 10px 0; border: 1px solid #eee; border-radius: 14px; 
+            background: #fff; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: space-between; color: #444;
+        }
+        .mode-btn:hover { background: var(--p); color: #fff; border-color: var(--p); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(46, 139, 87, 0.3); }
+
+        /* [2] 전체 레이아웃 */
+        .layout { display: flex; height: 100vh; transition: 0.8s; filter: blur(20px); opacity: 0; transform: scale(0.98); }
+        .layout.active { filter: blur(0); opacity: 1; transform: scale(1); }
+
+        /* Sidebar */
+        .sidebar { width: 250px; background: var(--white); padding: 30px 15px; display: flex; flex-direction: column; border-right: var(--border); z-index: 10; }
+        .brand { font-size: 22px; font-weight: 900; color: var(--p); margin-bottom: 40px; padding-left: 15px; display: flex; align-items: center; gap: 10px; }
+        .nav-item { 
+            padding: 15px 20px; border-radius: 12px; color: #777; font-weight: 600; cursor: pointer; transition: 0.2s; margin-bottom: 5px; font-size: 14px; display: flex; align-items: center; gap: 12px;
+        }
+        .nav-item:hover, .nav-item.active { background: var(--p-light); color: var(--p); }
+        
+        /* Main Content Stage */
+        .center-stage { flex: 1; padding: 0; overflow-y: auto; position: relative; }
+        
+        /* View Sections (Tab Switching) */
+        .view-section { display: none; padding: 30px; grid-template-columns: repeat(2, 1fr); gap: 20px; align-content: start; animation: fadeIn 0.4s ease-out; }
+        .view-section.active { display: grid; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Right Panel */
+        .right-panel { width: 350px; background: var(--white); border-left: var(--border); padding: 30px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+
+        /* Common Components */
+        .card { background: var(--white); border-radius: 18px; padding: 25px; box-shadow: var(--shadow); border: var(--border); position: relative; overflow: hidden; }
+        .full-width { grid-column: span 2; }
+        .card-h { font-size: 15px; font-weight: 800; color: #333; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; letter-spacing: -0.5px; }
+        .tag { font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: var(--p-light); color: var(--p); text-transform: uppercase; }
+
+        /* Page 1: Dashboard */
+        .solution-text { font-size: 15px; line-height: 1.7; color: #555; background: #fafafa; padding: 20px; border-radius: 12px; border-left: 4px solid var(--p); margin-bottom: 20px; }
+        .mind-input { width: 100%; border: 1px solid #eee; border-radius: 10px; padding: 15px; resize: none; font-family: inherit; margin-bottom: 10px; background: #f9f9f9; }
+        .burn-btn { width: 100%; background: #e74c3c; color: white; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: 700; transition: 0.3s; }
+        .burn-btn:hover { background: #c0392b; }
+
+        /* Page 2: Therapy Space */
+        .space-card { height: 200px; border-radius: 16px; background-size: cover; background-position: center; position: relative; cursor: pointer; transition: 0.3s; overflow: hidden; box-shadow: var(--shadow); }
+        .space-card:hover { transform: scale(1.02); }
+        .space-overlay { position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px; background: linear-gradient(transparent, rgba(0,0,0,0.8)); color: white; }
+        .space-t { font-size: 18px; font-weight: 800; }
+        .space-d { font-size: 12px; opacity: 0.8; margin-top: 5px; }
+
+        /* Page 3: Food & Nutrition */
+        .food-grid { display: flex; gap: 15px; margin-top: 15px; }
+        .food-item { flex: 1; background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #eee; cursor: pointer; transition: 0.2s; }
+        .food-item:hover { border-color: var(--p); background: var(--p-light); }
+        .nutrient-chart { margin-top: 20px; background: #fff; padding: 15px; border-radius: 12px; border: 1px solid #eee; }
+
+        /* Page 4: Community */
+        .comm-post { padding: 15px; border-bottom: 1px solid #eee; display: flex; gap: 15px; }
+        .comm-avatar { width: 40px; height: 40px; background: #ddd; border-radius: 50%; }
+        .comm-body { font-size: 13px; color: #555; line-height: 1.5; }
+
+        /* Right Panel Tools */
+        .timer-display { font-size: 50px; font-weight: 900; color: var(--p); text-align: center; margin: 15px 0; font-variant-numeric: tabular-nums; }
+        .timer-ctrls button { padding: 8px 15px; border: 1px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; font-size: 13px; margin: 0 5px; }
+        .music-list { display: flex; flex-direction: column; gap: 8px; }
+        .music-item { padding: 12px; background: #f8f9fa; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; }
+        .music-item:hover { border-color: var(--p); }
+        .music-item.playing { background: var(--p); color: #fff; border-color: var(--p); }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="introModal">
+        <div class="modal-card">
+            <h2 style="color:var(--p); font-size:26px; margin-bottom:10px;">Wellness OS Pro</h2>
+            <p style="color:#666; margin-bottom:40px; line-height:1.6; font-size:15px;">
+                현재 사용자의 상태를 진단하여<br>대시보드, 공간, 식단, 사운드를 모두 재구성합니다.
+            </p>
+            <button class="mode-btn" onclick="startOS('focus')">
+                <span><i class="fa-solid fa-brain" style="color:#e67e22; margin-right:10px;"></i> 집중력 저하 / 브레인 포그</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+            <button class="mode-btn" onclick="startOS('stress')">
+                <span><i class="fa-solid fa-heart-crack" style="color:#e74c3c; margin-right:10px;"></i> 급성 스트레스 / 불안</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+            <button class="mode-btn" onclick="startOS('fatigue')">
+                <span><i class="fa-solid fa-battery-quarter" style="color:#3498db; margin-right:10px;"></i> 신체 에너지 방전 / 피로</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="layout" id="mainLayout">
+        
+        <nav class="sidebar">
+            <div class="brand"><i class="fa-solid fa-circle-nodes"></i> BIO-OS</div>
+            <div class="nav-item active" onclick="switchView('dashboard', this)"><i class="fa-solid fa-chart-pie"></i> 대시보드 홈</div>
+            <div class="nav-item" onclick="switchView('spaces', this)"><i class="fa-solid fa-vr-cardboard"></i> 테라피 공간</div>
+            <div class="nav-item" onclick="switchView('food', this)"><i class="fa-solid fa-carrot"></i> 영양 솔루션</div>
+            <div class="nav-item" onclick="switchView('community', this)"><i class="fa-solid fa-users-rays"></i> 커뮤니티</div>
+            
+            <div style="margin-top:auto; background:#f0f2f5; padding:20px; border-radius:15px;">
+                <div style="font-size:12px; color:#888; margin-bottom:5px;">Today's Condition</div>
+                <div id="sideStatus" style="font-size:18px; font-weight:800; color:var(--p);">Analyzing...</div>
+            </div>
+        </nav>
+
+        <main class="center-stage">
+            
+            <section id="dashboard" class="view-section active">
+                <div class="card full-width">
+                    <div class="card-h">
+                        <span><i class="fa-solid fa-microscope"></i> AI 정밀 행동 처방 (Science-based Solution)</span>
+                        <span class="tag">AI Generated</span>
+                    </div>
+                    <div id="dash-solution" class="solution-text">로딩 중...</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-h"><i class="fa-solid fa-fire"></i> 감정 소각장 (Mind Cleaner)</div>
+                    <textarea id="mindText" class="mind-input" rows="4" placeholder="지금 머릿속을 어지럽히는 생각들을 적어주세요. 버튼을 누르면 디지털 방식으로 영원히 소각됩니다."></textarea>
+                    <button class="burn-btn" onclick="burnMind()"><i class="fa-solid fa-trash"></i> 생각 태워버리기</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-h">바이오리듬 시각화</div>
+                    <div style="height:180px;"><canvas id="bioChart"></canvas></div>
+                </div>
+
+                <div class="card full-width">
+                    <div class="card-h">즉각 실행 프로토콜 (Action Plan)</div>
+                    <div id="dash-actions" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"></div>
+                </div>
+            </section>
+
+            <section id="spaces" class="view-section">
+                <div class="card full-width" style="background:none; border:none; box-shadow:none; padding:0;">
+                    <div style="font-size:20px; font-weight:800; margin-bottom:20px;">몰입형 가상 환경 (Virtual Environment)</div>
+                </div>
+                <div class="space-card" style="background-image: url('https://images.unsplash.com/photo-1511497584788-876760111969?w=800');" onclick="alert('가상 숲 공간으로 이동합니다. (VR 모드 준비중)')">
+                    <div class="space-overlay">
+                        <div class="space-t">Deep Forest</div>
+                        <div class="space-d">피톤치드 시각화 및 432Hz 새소리</div>
+                    </div>
+                </div>
+                <div class="space-card" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800');" onclick="alert('해변 공간으로 이동합니다.')">
+                    <div class="space-overlay">
+                        <div class="space-t">Sunset Beach</div>
+                        <div class="space-d">알파파 유도 파도 소리</div>
+                    </div>
+                </div>
+                <div class="space-card" style="background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?w=800');" onclick="alert('집중 서재로 이동합니다.')">
+                    <div class="space-overlay">
+                        <div class="space-t">Focus Library</div>
+                        <div class="space-d">백색소음 및 차분한 조명</div>
+                    </div>
+                </div>
+                <div class="space-card" style="background-image: url('https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=800');" onclick="alert('명상 룸으로 이동합니다.')">
+                    <div class="space-overlay">
+                        <div class="space-t">Zen Garden</div>
+                        <div class="space-d">완벽한 고요와 명상 가이드</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="food" class="view-section">
+                <div class="card full-width">
+                    <div class="card-h">맞춤형 영양 공급 전략</div>
+                    <div id="food-desc" style="color:#666; margin-bottom:20px;"></div>
+                    <div class="card-h" style="font-size:13px; color:#888;">추천 식재료</div>
+                    <div id="food-list" class="food-grid"></div>
+                </div>
+                <div class="card full-width">
+                    <div class="card-h">영양 성분 분석표</div>
+                    <div style="display:flex; justify-content:space-around; text-align:center; padding:20px 0;">
+                        <div><div style="font-size:24px; font-weight:900; color:var(--p);">45%</div><div style="font-size:12px;">복합 탄수화물</div></div>
+                        <div><div style="font-size:24px; font-weight:900; color:#e67e22;">30%</div><div style="font-size:12px;">단백질</div></div>
+                        <div><div style="font-size:24px; font-weight:900; color:#3498db;">25%</div><div style="font-size:12px;">건강한 지방</div></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="community" class="view-section">
+                <div class="card full-width">
+                    <div class="card-h">익명 인사이트 피드 (Insight Feed)</div>
+                    <div class="comm-post">
+                        <div class="comm-avatar" style="background:#ff9f43;"></div>
+                        <div class="comm-body">
+                            <strong>User_2910</strong><br>
+                            스트레스 모드에서 추천해준 '4-7-8 호흡법' 진짜 효과 있네요. 스마트 워치 심박수가 90에서 72로 떨어짐.
+                        </div>
+                    </div>
+                    <div class="comm-post">
+                        <div class="comm-avatar" style="background:#54a0ff;"></div>
+                        <div class="comm-body">
+                            <strong>MindWalker</strong><br>
+                            집중력 저하일 때 견과류 먹으라는 팁 보고 바로 편의점 다녀왔습니다. 확실히 머리가 맑아지는 기분입니다.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <aside class="right-panel">
+            <div class="card">
+                <div class="card-h"><i class="fa-solid fa-stopwatch"></i> 포모도로 타이머</div>
+                <div class="timer-display" id="timer">25:00</div>
+                <div class="timer-ctrls" style="text-align:center;">
+                    <button onclick="runTimer()"><i class="fa-solid fa-play"></i> Start</button>
+                    <button onclick="stopTimer()"><i class="fa-solid fa-pause"></i> Pause</button>
+                    <button onclick="resetTimer()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-h"><i class="fa-solid fa-music"></i> 힐링 사운드</div>
+                <div class="music-list">
+                    <div class="music-item" onclick="playMusic(0, this)">
+                        <span><i class="fa-solid fa-play"></i> Erik Satie - Gymnopédies</span>
+                    </div>
+                    <div class="music-item" onclick="playMusic(1, this)">
+                        <span><i class="fa-solid fa-play"></i> Debussy - Clair de Lune</span>
+                    </div>
+                    <div class="music-item" onclick="playMusic(2, this)">
+                        <span><i class="fa-solid fa-play"></i> Yiruma - River Flows</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-h">2026.02 Tracker</div>
+                <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:4px; text-align:center; font-size:11px; color:#aaa;">
+                    <div id="mini-cal" style="display:contents;"></div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+    
+    <audio id="audioPlayer" loop></audio>
+
+    <script>
+        // [Data] 통합 상태 데이터베이스
+        const db = {
+            focus: {
+                label: "FOCUS MODE",
+                sol: "현재 뇌파 분석 결과, 전두엽의 베타파 활성도가 저하되어 정보 처리 병목 현상이 발생하고 있습니다. <br><br>이를 해결하기 위해선 단순 휴식이 아닌 <strong>'적극적 시각 차단'</strong>과 <strong>'혈당 스파이크 없는 에너지 공급'</strong>이 핵심입니다. 카페인은 오히려 뇌의 피로도를 높일 수 있으니, 아래의 행동 프로토콜을 따르십시오.",
+                acts: ["스마트폰 흑백 모드 전환", "창문 열어 환기 (CO2 배출)", "견과류/다크초콜릿 섭취", "20분 집중 후 5분 먼 곳 응시"],
+                foodDesc: "뇌의 인지 기능을 담당하는 뉴런의 신호 전달을 돕는 '오메가-3'와 '항산화 물질'이 풍부한 식단이 필요합니다.",
+                foods: ["호두 & 아몬드", "블루베리", "연어 샐러드", "녹차 (테아닌)"]
+            },
+            stress: {
+                label: "CALM MODE",
+                sol: "자율신경계 분석 결과, 교감 신경이 과도하게 항진되어 '투쟁-도피' 반응이 활성화되었습니다. <br><br>가장 시급한 것은 <strong>'미주신경 자극'</strong>입니다. 심호흡을 통해 횡격막을 움직여 부교감 신경을 강제 활성화해야 합니다. 지금의 불안은 심리적 문제가 아닌 생리적 현상임을 인지하십시오.",
+                acts: ["4-7-8 호흡법 3회 실시", "따뜻한 물 한 잔 마시기", "어깨/승모근 마사지", "좋아하는 향기(라벤더 등) 맡기"],
+                foodDesc: "스트레스 호르몬인 코르티솔 수치를 낮추고, 행복 호르몬인 세로토닌 생성을 돕는 '트립토판' 위주의 식단입니다.",
+                foods: ["바나나", "따뜻한 우유", "통곡물 빵", "허브티"]
+            },
+            fatigue: {
+                label: "RECOVERY MODE",
+                sol: "세포 내 ATP 생성 효율이 저하되고 젖산이 축적된 전형적인 '에너지 고갈' 상태입니다. <br><br>무리한 활동은 활성산소를 증가시켜 노화를 촉진합니다. 지금은 <strong>'수동적 휴식'</strong>보다는 림프 순환을 돕는 <strong>'가벼운 스트레칭'</strong>과 <strong>'질 좋은 수면'</strong>을 위한 준비가 필요합니다.",
+                acts: ["30분 파워 낮잠(Power Nap)", "다리 심장보다 높게 올리기", "미온수 샤워", "스마트폰 블루라이트 차단"],
+                foodDesc: "소화 에너지를 최소화하고, 근육 회복과 에너지 재충전을 돕는 '고단백' 및 '비타민 B군' 식단입니다.",
+                foods: ["닭가슴살 죽", "두부 요리", "달걀 찜", "비타민 음료"]
+            }
+        };
+
+        const tracks = [
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", 
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3"
+        ];
+
+        let currentMode = 'focus';
+        let timerInt = null;
+        let timeLeft = 1500;
+
+        // [Logic 1] 시스템 부팅 및 데이터 바인딩
+        function startOS(mode) {
+            currentMode = mode;
+            const data = db[mode];
+
+            // UI 전환
+            document.getElementById('introModal').style.display = 'none';
+            document.getElementById('mainLayout').classList.add('active');
+            
+            // 데이터 뿌리기 (대시보드)
+            document.getElementById('sideStatus').innerText = data.label;
+            document.getElementById('dash-solution').innerHTML = data.sol;
+            document.getElementById('dash-actions').innerHTML = data.acts.map(a => 
+                `<div style="background:#f8f9fa; padding:12px; border-radius:10px; font-size:13px; display:flex; align-items:center; gap:8px; border:1px solid #eee;">
+                    <i class="fa-solid fa-check" style="color:var(--p)"></i> ${a}
+                </div>`
+            ).join('');
+
+            // 데이터 뿌리기 (식단)
+            document.getElementById('food-desc').innerText = data.foodDesc;
+            document.getElementById('food-list').innerHTML = data.foods.map(f => 
+                `<div class="food-item">
+                    <div style="font-size:24px; margin-bottom:5px;">🍽️</div>
+                    <div style="font-weight:700; font-size:14px;">${f}</div>
+                </div>`
+            ).join('');
+
+            initChart();
+            initCalendar();
+        }
+
+        // [Logic 2] 탭 전환 (뷰 스위칭)
+        function switchView(viewId, el) {
+            // 1. 사이드바 활성 클래스 변경
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            el.classList.add('active');
+
+            // 2. 메인 섹션 숨기기/보이기
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        // [Logic 3] 감정 소각장
+        function burnMind() {
+            const area = document.getElementById('mindText');
+            if(area.value.trim() === "") return alert("먼저 소각할 생각들을 적어주세요.");
+            
+            if(confirm("정말 이 생각들을 디지털 공간에서 완전히 삭제하시겠습니까?")) {
+                area.style.transition = "all 1.5s ease";
+                area.style.background = "#2c3e50";
+                area.style.color = "#2c3e50"; // 글자도 배경색과 같게 만들어 안 보이게
+                area.style.transform = "scale(0.95)";
+                
+                setTimeout(() => {
+                    alert("성공적으로 소각되었습니다. 머릿속이 한결 가벼워지셨길 바랍니다.");
+                    area.value = "";
+                    area.style = ""; // 스타일 초기화
+                }, 1600);
+            }
+        }
+
+        // [Logic 4] 타이머 & 음악 & 차트
+        function runTimer() {
+            if(timerInt) return;
+            timerInt = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                if(timeLeft <= 0) { clearInterval(timerInt); alert("세션 종료!"); }
+            }, 1000);
+        }
+        function stopTimer() { clearInterval(timerInt); timerInt = null; }
+        function resetTimer() { stopTimer(); timeLeft = 1500; updateTimerDisplay(); }
+        function updateTimerDisplay() {
+            const m = String(Math.floor(timeLeft / 60)).padStart(2,'0');
+            const s = String(timeLeft % 60).padStart(2,'0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
+        }
+
+        function playMusic(idx, el) {
+            const player = document.getElementById('audioPlayer');
+            document.querySelectorAll('.music-item').forEach(i => i.classList.remove('playing'));
+            
+            if(player.src === tracks[idx] && !player.paused) {
+                player.pause();
+            } else {
+                el.classList.add('playing');
+                player.src = tracks[idx];
+                player.play();
+            }
+        }
+
+        function initChart() {
+            new Chart(document.getElementById('bioChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Now', '+2h', '+4h', '+6h', '+8h', '+10h'],
+                    datasets: [{
+                        label: 'Energy Prediction',
+                        data: [30, 45, 60, 55, 70, 80],
+                        borderColor: '#2E8B57',
+                        backgroundColor: 'rgba(46, 139, 87, 0.1)',
+                        fill: true, tension: 0.4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+            });
+        }
+
+        function initCalendar() {
+            const cal = document.getElementById('mini-cal');
+            for(let i=0; i<28; i++) {
+                const d = document.createElement('div');
+                d.style.padding = "4px";
+                d.style.borderRadius = "4px";
+                d.style.background = Math.random() > 0.7 ? "var(--p)" : "#eee"; // 랜덤으로 실천 기록 표시
+                d.innerText = i+1;
+                if(d.style.background !== "rgb(238, 238, 238)") d.style.color = "#fff";
+                cal.appendChild(d);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIO-OS | 정밀 건강 대시보드</title>
+    <meta name="description" content="AI 기반 뇌파 및 바이오리듬 분석 플랫폼 BIO-OS입니다.">
+    <meta property="og:title" content="BIO-OS 건강 대시보드">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <style>
+        body { font-family: 'Apple SD Gothic Neo', sans-serif; margin: 0; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .container { text-align: center; padding: 20px; border: 1px solid #334155; border-radius: 20px; background: #1e293b; width: 80%; max-width: 400px; }
+        button { background: #38bdf8; color: #0f172a; border: none; padding: 15px 20px; border-radius: 12px; font-weight: bold; margin: 10px 0; width: 100%; cursor: pointer; }
+        #data-display { margin-top: 20px; font-size: 0.9rem; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BIO-OS</h1>
+        <p>생체 데이터 실시간 연동</p>
+        <button onclick="askLocation()">📍 현재 위치 기반 분석</button>
+        <button onclick="sendPush()">🔔 건강 알림 테스트</button>
+        <div id="data-display">버튼을 눌러 데이터를 활성화하세요.</div>
+    </div>
+
+    <script>
+        function askLocation() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                document.getElementById('data-display').innerText = `분석 완료: 위도 ${pos.coords.latitude.toFixed(2)} 지역의 산소 포화도 최적`;
+            });
+        }
+        function sendPush() {
+            alert("알림: 현재 뇌파가 '안정' 상태입니다. 깊은 업무에 집중하세요!");
+        }
+    </script>
+</body>
+</html>
