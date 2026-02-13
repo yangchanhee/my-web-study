@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nature Walk - Healing Journey</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #a2d2ff;
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            color: #fff;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            padding: 40px 0;
+        }
+
+        .overlay {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(15px);
+            color: #2d5a27;
+            padding: 50px;
+            border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            max-width: 450px;
+            transition: opacity 1s ease;
+        }
+
+        .hidden { opacity: 0; pointer-events: none; }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0 0 15px 0;
+            color: #386641;
+            font-weight: 300;
+            letter-spacing: -1px;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #6a994e;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background: #6a994e;
+            border: none;
+            border-radius: 50px;
+            color: white;
+            padding: 18px 50px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(106, 153, 78, 0.3);
+        }
+
+        button:hover {
+            background: #386641;
+            transform: translateY(-2px);
+            box-shadow: 0 15px 25px rgba(106, 153, 78, 0.4);
+        }
+
+        #hud {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 50px;
+            box-sizing: border-box;
+        }
+
+        .hud-item {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-size: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        #message-area {
+            margin-bottom: 50px;
+            font-size: 1.2rem;
+            font-weight: 300;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 2s ease;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div id="hud">
+            <div class="hud-item" id="dist-hud">여정: 0m</div>
+            <div class="hud-item" id="biome-hud">숲의 입구</div>
+        </div>
+
+        <div id="message-area">소리와 함께 자연의 숨결을 느껴보세요.</div>
+        
+        <div id="start-screen" class="overlay">
+            <h1>고요한 산책</h1>
+            <p>50미터마다 변화하는 아름다운 풍경과<br>차분한 바람 소리를 즐겨보세요.</p>
+            <button onclick="startGame()">산책 시작하기</button>
+        </div>
+
+        <div id="crosshair"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        let scene, camera, renderer, audioCtx;
+        let isWalking = false;
+        let distance = 0;
+        let walkSpeed = 0.12; 
+        let bobbingAmount = 0;
+        
+        const decors = []; 
+        const mountains = [];
+        const collectibles = []; 
+        
+        // 50미터마다 바뀔 풍경 데이터 (더 세분화됨)
+        const biomes = [
+            { name: "새벽의 숲", ground: 0x2d6a4f, sky: 0x8ecae6, sun: 0xfff9c4, mountain: 0x1b4332, msg: "새벽 공기가 상쾌하게 다가옵니다." },
+            { name: "황금빛 들판", ground: 0xeeef20, sky: 0x00b4d8, sun: 0xffd60a, mountain: 0x7b2cbf, msg: "따스한 햇살이 대지를 적십니다." },
+            { name: "분홍빛 노을", ground: 0x7209b7, sky: 0xf72585, sun: 0xffa07a, mountain: 0x3f37c9, msg: "하늘이 분홍빛으로 물들어갑니다." },
+            { name: "깊은 밤의 숲", ground: 0x001219, sky: 0x001219, sun: 0xe9ecef, mountain: 0x005f73, msg: "달빛만이 어둠을 조용히 밝힙니다." },
+            { name: "은빛 설원", ground: 0xffffff, sky: 0xade8f4, sun: 0xe0f2f1, mountain: 0x48cae4, msg: "하얀 눈이 세상을 덮고 있습니다." },
+            { name: "보랏빛 우주", ground: 0x240046, sky: 0x10002b, sun: 0xff9e00, mountain: 0x3c096c, msg: "우주의 신비가 눈앞에 펼쳐집니다." },
+            { name: "오렌지빛 사막", ground: 0xfb8500, sky: 0xffb703, sun: 0xffffff, mountain: 0x023047, msg: "끝없는 지평선 너머로 나아갑니다." }
+        ];
+        
+        let currentBiomeIndex = 0;
+        const distHud = document.getElementById('dist-hud');
+        const biomeHud = document.getElementById('biome-hud');
+        const msgArea = document.getElementById('message-area');
+        const startScreen = document.getElementById('start-screen');
+
+        let floor, sunMesh;
+        let windNoise; // 오디오 노드
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(biomes[0].sky, 30, 400);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            const floorGeo = new THREE.PlaneGeometry(2000, 2000);
+            const floorMat = new THREE.MeshStandardMaterial({ color: biomes[0].ground, roughness: 1 });
+            floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            const sunGeo = new THREE.SphereGeometry(8, 32, 32);
+            const sunMat = new THREE.MeshBasicMaterial({ color: biomes[0].sun });
+            sunMesh = new THREE.Mesh(sunGeo, sunMat);
+            sunMesh.position.set(0, 60, -350);
+            scene.add(sunMesh);
+
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
+            scene.add(new THREE.DirectionalLight(0xffffff, 0.5));
+
+            createInitialMountains();
+            camera.position.set(0, 1.7, 5);
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        // --- 오디오 시스템 (바람 소리 합성) ---
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 화이트 노이즈 생성 (바람 소리 베이스)
+            const bufferSize = 2 * audioCtx.sampleRate;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            const whiteNoise = audioCtx.createBufferSource();
+            whiteNoise.buffer = noiseBuffer;
+            whiteNoise.loop = true;
+
+            // 로우패스 필터로 부드러운 바람 소리 만들기
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 400;
+            filter.Q.value = 1;
+
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.value = 0.05; // 볼륨 조절
+
+            whiteNoise.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            whiteNoise.start();
+
+            // 바람 소리 주기적 변화 (LFO 효과)
+            setInterval(() => {
+                const now = audioCtx.currentTime;
+                filter.frequency.exponentialRampToValueAtTime(300 + Math.random() * 500, now + 2);
+            }, 3000);
+        }
+
+        function createInitialMountains() {
+            for(let i = 0; i < 25; i++) {
+                const height = 60 + Math.random() * 120;
+                const width = 100 + Math.random() * 150;
+                const geo = new THREE.ConeGeometry(width, height, 4);
+                const mat = new THREE.MeshStandardMaterial({ color: biomes[0].mountain, flatShading: true });
+                const mt = new THREE.Mesh(geo, mat);
+                mt.position.set((Math.random() - 0.5) * 1000, height/2 - 10, -200 - Math.random() * 400);
+                mt.rotation.y = Math.random() * Math.PI;
+                scene.add(mt);
+                mountains.push(mt);
+            }
+        }
+
+        function spawnTree() {
+            if (Math.random() < 0.18) {
+                const tree = new THREE.Group();
+                const trunk = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.2, 0.4, 4),
+                    new THREE.MeshStandardMaterial({ color: 0x3d2b1f })
+                );
+                tree.add(trunk);
+                
+                const leafColor = new THREE.Color(biomes[currentBiomeIndex].ground).clone().lerp(new THREE.Color(0xffffff), 0.2);
+                for(let i=0; i<3; i++) {
+                    const leaf = new THREE.Mesh(
+                        new THREE.ConeGeometry(2.2 - i*0.5, 3.5),
+                        new THREE.MeshStandardMaterial({ color: leafColor })
+                    );
+                    leaf.position.y = 2 + i*1.4;
+                    tree.add(leaf);
+                }
+                const side = Math.random() > 0.5 ? 1 : -1;
+                tree.position.set(side * (7 + Math.random() * 20), 2, -350);
+                scene.add(tree);
+                decors.push(tree);
+            }
+        }
+
+        function updateEnvironment() {
+            // 50미터마다 환경 전환 로직
+            const nextIndex = Math.floor(distance / 50) % biomes.length;
+            if (nextIndex !== currentBiomeIndex) {
+                currentBiomeIndex = nextIndex;
+                biomeHud.innerText = biomes[currentBiomeIndex].name;
+                msgArea.innerText = biomes[currentBiomeIndex].msg;
+                msgArea.style.opacity = 1;
+                // 메시지는 4초 후 사라짐
+                setTimeout(() => { if(isWalking) msgArea.style.opacity = 0; }, 4000);
+            }
+
+            const target = biomes[currentBiomeIndex];
+            floor.material.color.lerp(new THREE.Color(target.ground), 0.01);
+            scene.background = new THREE.Color(target.sky);
+            scene.fog.color.lerp(new THREE.Color(target.sky), 0.01);
+            sunMesh.material.color.lerp(new THREE.Color(target.sun), 0.01);
+            mountains.forEach(mt => mt.material.color.lerp(new THREE.Color(target.mountain), 0.01));
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (isWalking) {
+                distance += walkSpeed;
+                distHud.innerText = `여정: ${Math.floor(distance)}m`;
+
+                bobbingAmount += 0.025;
+                camera.position.y = 1.7 + Math.sin(bobbingAmount) * 0.05;
+                camera.rotation.z = Math.cos(bobbingAmount * 0.5) * 0.008;
+
+                decors.forEach((d, i) => {
+                    d.position.z += walkSpeed;
+                    if (d.position.z > 20) {
+                        scene.remove(d);
+                        decors.splice(i, 1);
+                    }
+                });
+
+                mountains.forEach(mt => {
+                    mt.position.z += walkSpeed * 0.15;
+                    if (mt.position.z > 100) mt.position.z = -500;
+                });
+
+                spawnTree();
+                updateEnvironment();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function startGame() {
+            initAudio(); // 버튼 클릭 시 오디오 활성화 (브라우저 정책 대응)
+            isWalking = true;
+            startScreen.classList.add('hidden');
+            msgArea.style.opacity = 1;
+            setTimeout(() => { msgArea.style.opacity = 0; }, 5000);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
