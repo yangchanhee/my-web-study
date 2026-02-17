@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nature Walk - The Ultimate 4-Way Odyssey</title>
+    <style>
+        :root {
+            --primary: #2d5a27;
+            --secondary: #1e3a8a;
+            --accent: #a7c957;
+            --history: #8d6e63;
+            --glass: rgba(255, 255, 255, 0.88);
+        }
+
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: #000;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            color: #fff;
+            user-select: none;
+        }
+
+        #ui-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column; z-index: 10;
+        }
+
+        #hud { display: flex; justify-content: space-between; padding: 25px; }
+        .hud-item {
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(15px);
+            padding: 14px 28px; border-radius: 50px; font-size: 1.1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2); font-weight: 700;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        #rest-modal {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--glass); backdrop-filter: blur(30px);
+            padding: 40px; border-radius: 50px; color: #222; text-align: center; 
+            z-index: 100; box-shadow: 0 40px 120px rgba(0,0,0,0.6);
+            display: none; width: 90%; max-width: 500px; pointer-events: auto;
+        }
+
+        .action-btn {
+            width: 100%; padding: 20px; border-radius: 20px; border: none;
+            background: var(--primary); color: white; font-size: 1.2rem; font-weight: 900;
+            cursor: pointer; margin-top: 15px; transition: 0.3s;
+        }
+
+        .overlay {
+            pointer-events: auto; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); background: var(--glass);
+            backdrop-filter: blur(25px); color: #333; padding: 30px;
+            border-radius: 40px; text-align: center; width: 95%; max-width: 650px;
+            max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 100px rgba(0, 0, 0, 0.4);
+        }
+        .hidden { opacity: 0 !important; pointer-events: none !important; transform: translate(-50%, -45%) scale(0.9); }
+
+        .theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .theme-card {
+            border: 2px solid #ddd; border-radius: 20px; padding: 15px;
+            cursor: pointer; transition: all 0.3s; text-align: left; background: #fff;
+        }
+        .theme-card.active { border-color: var(--primary); background: rgba(45, 90, 39, 0.08); transform: scale(1.02); }
+        .theme-card h3 { margin: 0 0 5px 0; font-size: 1.1rem; color: #111; }
+        .theme-card p { margin: 0; font-size: 0.8rem; color: #666; }
+
+        #message-area {
+            position: absolute; bottom: 85px; width: 100%; text-align: center;
+            font-size: 1.6rem; font-weight: 800; text-shadow: 0 4px 20px rgba(0,0,0,0.9);
+            opacity: 0; transition: opacity 1s;
+        }
+
+        .speed-group { display: flex; gap: 10px; margin-top: 15px; }
+        .mode-btn { flex: 1; padding: 14px; border-radius: 15px; border: 2px solid #eee; background: #fff; font-weight: 800; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div id="hud">
+            <div class="hud-item" id="dist-hud">여정: 0m</div>
+            <div class="hud-item" id="path-hud">현재: 시공간 대기</div>
+        </div>
+
+        <div id="message-area">최적의 시점으로 여정을 시작합니다.</div>
+        
+        <div id="start-screen" class="overlay">
+            <h1 style="margin:0; font-size:1.8rem;">넥스트 제너레이션 오디세이</h1>
+            <p style="margin:5px 0 10px 0;">4가지 테마, 최적화된 카메라 뷰</p>
+            
+            <div class="theme-grid">
+                <div class="theme-card active" id="card-nature" onclick="setTheme('nature')">
+                    <h3>🌌 코스믹 플래닛</h3>
+                    <p>행성 간 비행과 착륙을 담은 1인칭 탐사 시점</p>
+                </div>
+                <div class="theme-card" id="card-history" onclick="setTheme('history')">
+                    <h3>🧬 인류의 성장</h3>
+                    <p>공룡부터 낙원까지 이어지는 역사적 진화 시점</p>
+                </div>
+                <div class="theme-card" id="card-animal" onclick="setTheme('animal')">
+                    <h3>🌿 힐링 사파리</h3>
+                    <p>연두색 들판과 10가지 힐링 요소가 있는 동물 세계</p>
+                </div>
+                <div class="theme-card" id="card-drone" onclick="setTheme('drone')">
+                    <h3>🛸 드론 뷰</h3>
+                    <p>상공에서 맵 전체를 360도 회전하며 보는 오버뷰</p>
+                </div>
+            </div>
+            
+            <div class="speed-group">
+                <button id="speed-fast" class="mode-btn">⚡ 빠른 질주</button>
+                <button id="speed-slow" class="mode-btn" style="border-color: var(--primary); background: var(--primary); color: white;">🚶 천천히 걷기</button>
+            </div>
+
+            <button id="start-btn" style="width:100%; padding:20px; border-radius:20px; border:none; background:var(--primary); color:white; font-size:1.4rem; font-weight:900; cursor:pointer; margin-top:15px;">여정 시작</button>
+        </div>
+    </div>
+
+    <div id="rest-modal">
+        <h2 id="rest-title" style="font-size: 2rem; font-weight: 900; margin-bottom: 10px;">위대한 안식</h2>
+        <p>잠시 숨을 고르며 주변의 풍경을 감상하세요.</p>
+        <button class="action-btn" onclick="resumeJourney()">여정 재개하기</button>
+    </div>
+
+    <audio id="bgm-player" loop crossorigin="anonymous"></audio>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- 전역 변수 ---
+        let scene, camera, renderer, bgmPlayer;
+        let isStarted = false, isResting = false, isLanding = false;
+        let distance = 0, currentWalkSpeed = 0, targetWalkSpeed = 0.08;
+        let terrainMesh, pathMesh, particles, animals = [];
+        let petalParticles; // 힐링 요소: 꽃잎
+        let currentTheme = 'nature', currentBiomeKey = '';
+
+        const biomes = {
+            nature: {
+                plain: { name: "지구 평원", ground: 0x2d6a4f, h: 0, road: 'white', detail: 2 },
+                v1: { name: "베르단트 행성", ground: 0x132a13, h: 10, road: 'emerald', detail: 20 },
+                i1: { name: "인페르노 행성", ground: 0x370617, h: 5, road: 'fire', detail: 30 },
+                c1: { name: "사이버 행성", ground: 0x023e8a, h: 20, road: 'matrix', detail: 10 },
+                g1: { name: "글래시어 행성", ground: 0xccfbff, h: -10, road: 'ice', detail: 15 },
+                a5: { name: "에테르 행성", ground: 0xffffff, h: 50, road: 'divine', detail: 5 }
+            },
+            history: {
+                dino: { name: "공룡 시대", ground: 0x1b4332, h: 8, road: 'brown', detail: 25 },
+                ice: { name: "빙하기", ground: 0xf8f9fa, h: 3, road: 'ice', detail: 10 },
+                ancient: { name: "고대 문명", ground: 0xe9c46a, h: 0, road: 'gold', detail: 5 },
+                modern: { name: "현대 도시", ground: 0x212529, h: 0, road: 'white', detail: 2 },
+                future: { name: "미래 문명", ground: 0x0b090a, h: 25, road: 'neon', detail: 15 },
+                stairs: { name: "진리의 계단", ground: 0x000000, h: 60, road: 'stairs', detail: 0 },
+                paradise: { name: "낙원의 행성", ground: 0xffafcc, h: 10, road: 'paradise', detail: 8 }
+            },
+            animal: {
+                savanna: { name: "연두색 힐링 들판", ground: 0xaacc00, h: 0, road: 'white', detail: 3 },
+                forest: { name: "싱그러운 숲", ground: 0x55a630, h: 5, road: 'white', detail: 10 },
+                tundra: { name: "빛나는 설원", ground: 0xe0fbfc, h: 2, road: 'ice', detail: 6 }
+            }
+        };
+
+        const roadCanvas = document.createElement('canvas');
+        roadCanvas.width = 256; roadCanvas.height = 1024;
+        const roadCtx = roadCanvas.getContext('2d');
+
+        function updateRoadTexture(style) {
+            roadCtx.clearRect(0, 0, 256, 1024);
+            roadCtx.fillStyle = '#0a0a0a'; roadCtx.fillRect(0, 0, 256, 1024);
+            let color = '#fff', dash = [80, 120], width = 15;
+            if (style === 'fire') color = '#ff4d00';
+            if (style === 'gold') color = '#ffd700';
+            if (style === 'emerald') color = '#00ff88';
+            if (style === 'matrix') { color = '#00ff41'; dash = [5, 5]; }
+            if (style === 'divine') { color = '#ffffff'; dash = [300, 50]; width = 30; }
+            if (style === 'ice') color = '#ccfbff';
+            if (style === 'stairs') { roadCtx.fillStyle = '#fff'; roadCtx.fillRect(0,0,256,1024); color = '#000'; dash = [2, 18]; width = 256; }
+            if (style === 'paradise') { roadCtx.fillStyle = '#ffafcc'; roadCtx.fillRect(0,0,256,1024); color = '#fff'; dash = [200, 200]; width = 40; }
+            if (style === 'brown') color = '#8d6e63';
+
+            roadCtx.strokeStyle = color;
+            roadCtx.setLineDash(style === 'stairs' ? [2, 18] : dash);
+            roadCtx.lineWidth = width;
+            roadCtx.beginPath();
+            if(style === 'stairs') { for(let i=0; i<1024; i+=20) { roadCtx.moveTo(0, i); roadCtx.lineTo(256, i); } }
+            else { roadCtx.moveTo(128, 0); roadCtx.lineTo(128, 1024); }
+            roadCtx.stroke();
+            if(pathMesh) pathMesh.material.map.needsUpdate = true;
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            scene.fog = new THREE.Fog(0x000000, 100, 4500);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 150000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            bgmPlayer = document.getElementById('bgm-player');
+            bgmPlayer.src = "https://archive.org/download/legend-of-zelda-ocarina-of-time-original-soundtrack/08%20Zelda%27s%20Lullaby.mp3";
+
+            createWorld();
+            setupLights();
+            camera.position.set(0, 6, 50);
+            
+            document.getElementById('speed-fast').onclick = () => { targetWalkSpeed = 0.95; updateSpeedUI('fast'); };
+            document.getElementById('speed-slow').onclick = () => { targetWalkSpeed = 0.08; updateSpeedUI('slow'); };
+            document.getElementById('start-btn').onclick = start;
+            window.addEventListener('resize', onResize);
+            animate();
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+            document.getElementById('card-' + theme).classList.add('active');
+        }
+
+        function updateSpeedUI(mode) {
+            const f = document.getElementById('speed-fast'), s = document.getElementById('speed-slow');
+            if(mode === 'fast') { f.style.background = 'var(--danger)'; f.style.color = 'white'; s.style.background = '#fff'; s.style.color = '#333'; }
+            else { s.style.background = 'var(--primary)'; s.style.color = 'white'; f.style.background = '#fff'; f.style.color = '#333'; }
+        }
+
+        function createWorld() {
+            const geo = new THREE.PlaneGeometry(30000, 60000, 100, 100);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1, flatShading: true });
+            terrainMesh = new THREE.Mesh(geo, mat);
+            terrainMesh.rotation.x = -Math.PI / 2;
+            terrainMesh.position.z = -15000;
+            scene.add(terrainMesh);
+
+            updateRoadTexture('white');
+            const tex = new THREE.CanvasTexture(roadCanvas);
+            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(1, 250);
+
+            pathMesh = new THREE.Mesh(new THREE.PlaneGeometry(60, 50000), new THREE.MeshStandardMaterial({ map: tex }));
+            pathMesh.rotation.x = -Math.PI / 2;
+            pathMesh.position.y = 1.0; pathMesh.position.z = -20000;
+            scene.add(pathMesh);
+
+            // 기본 배경 파티클
+            const pGeo = new THREE.BufferGeometry();
+            const pCount = 15000;
+            const posArr = new Float32Array(pCount * 3);
+            for(let i=0; i<pCount; i++){
+                posArr[i*3] = (Math.random()-0.5) * 30000;
+                posArr[i*3+1] = Math.random() * 6000;
+                posArr[i*3+2] = -Math.random() * 50000;
+            }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+            particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 8, transparent: true, opacity: 0.6 }));
+            scene.add(particles);
+
+            // 힐링 요소: 꽃잎 파티클
+            const petalGeo = new THREE.BufferGeometry();
+            const petalArr = new Float32Array(1000 * 3);
+            for(let i=0; i<1000; i++) {
+                petalArr[i*3] = (Math.random()-0.5) * 400;
+                petalArr[i*3+1] = 50 + Math.random() * 100;
+                petalArr[i*3+2] = -Math.random() * 1000;
+            }
+            petalGeo.setAttribute('position', new THREE.BufferAttribute(petalArr, 3));
+            petalParticles = new THREE.Points(petalGeo, new THREE.PointsMaterial({ color: 0xffb7c5, size: 5, transparent: true, opacity: 0 }));
+            scene.add(petalParticles);
+        }
+
+        function setupLights() {
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 3.5));
+            const dl = new THREE.DirectionalLight(0xffffff, 2.5);
+            dl.position.set(2000, 5000, 500);
+            scene.add(dl);
+        }
+
+        // --- 힐링 사파리 전용 오브젝트 스폰 ---
+        function spawnObject(type) {
+            const group = new THREE.Group();
+            const scale = (12 + Math.random() * 15);
+            const mat = new THREE.MeshStandardMaterial({ flatShading: true, emissive: 0xffffff, emissiveIntensity: 0.1 });
+
+            if(type === 'dino') {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(2*scale, 2.5*scale, 6*scale), mat.clone());
+                body.material.color.set(Math.random() > 0.5 ? 0x2d6a4f : 0x4a3728);
+                const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.5*scale, 0.8*scale, 8*scale), body.material);
+                neck.position.set(0, 4*scale, 3*scale); neck.rotation.x = 0.3;
+                group.add(body, neck);
+                group.userData = { type: 'dino', neck: neck, phase: Math.random()*Math.PI };
+            } else if(type === 'animal') {
+                const colors = [0xffd166, 0xef476f, 0x06d6a0, 0x118ab2, 0x8d6e63];
+                const body = new THREE.Mesh(new THREE.BoxGeometry(scale, scale, scale*1.5), mat.clone());
+                body.material.color.set(colors[Math.floor(Math.random()*colors.length)]);
+                group.add(body);
+                group.userData = { type: 'animal', phase: Math.random()*Math.PI };
+            } else if(type === 'butterfly') { // 힐링 요소: 나비
+                const bgroup = new THREE.Group();
+                const wingMat = new THREE.MeshBasicMaterial({color: 0xffff00, side: THREE.DoubleSide});
+                const wingR = new THREE.Mesh(new THREE.PlaneGeometry(scale/2, scale/2), wingMat);
+                const wingL = wingR.clone(); wingL.rotation.y = Math.PI;
+                bgroup.add(wingR, wingL);
+                group.add(bgroup);
+                group.userData = { type: 'butterfly', wing: bgroup, phase: 0 };
+            } else if(type === 'pond') { // 힐링 요소: 연못
+                const p = new THREE.Mesh(new THREE.CircleGeometry(25*scale, 32), new THREE.MeshStandardMaterial({color: 0x00b4d8, transparent: true, opacity: 0.7, roughness: 0.1}));
+                p.rotation.x = -Math.PI/2; p.position.y = -1;
+                group.add(p);
+            } else if(type === 'flower_cluster') { // 힐링 요소: 꽃밭
+                for(let i=0; i<10; i++) {
+                    const f = new THREE.Mesh(new THREE.SphereGeometry(scale/3), new THREE.MeshBasicMaterial({color: Math.random()*0xffffff}));
+                    f.position.set((Math.random()-0.5)*20, 0, (Math.random()-0.5)*20);
+                    group.add(f);
+                }
+            } else if(type === 'willow_tree') { // 힐링 요소: 버드나무
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(scale/10, scale/8, 10*scale), new THREE.MeshStandardMaterial({color: 0x3d2b1f}));
+                const leaf = new THREE.Mesh(new THREE.SphereGeometry(6*scale), new THREE.MeshStandardMaterial({color: 0x2d6a4f}));
+                leaf.position.y = 8*scale; leaf.scale.y = 1.5;
+                group.add(trunk, leaf);
+            } else if(type === 'ufo') {
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(5*scale, 5*scale, 1.2*scale, 16), mat.clone());
+                base.material.color.set(0x00f2ff); group.add(base);
+                group.userData = { type: 'ufo', phase: Math.random()*Math.PI };
+            } else if(type === 'rock') { // 힐링 요소: 이끼 낀 바위
+                const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(scale), new THREE.MeshStandardMaterial({color: 0x555555}));
+                const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(scale*1.1), new THREE.MeshStandardMaterial({color: 0x2d6a4f, transparent: true, opacity: 0.5}));
+                group.add(rock, moss);
+            }
+
+            const side = (Math.random() > 0.5 ? 1 : -1);
+            const xPos = (currentTheme === 'animal') ? side * (250 + Math.random()*600) : side * (180 + Math.random()*400);
+            group.position.set(xPos, 2, -30000);
+            scene.add(group);
+            animals.push(group);
+        }
+
+        function resumeJourney() {
+            document.getElementById('rest-modal').style.display = 'none';
+            isResting = false; isStarted = true;
+            camera.rotation.set(0,0,0);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(isStarted && !isResting) {
+                let nextKey = 'plain';
+                const mDist = distance * 10;
+                let restInt = 10000;
+
+                // 1. 테마별 속도 및 바이옴 제어
+                if(currentTheme === 'drone') {
+                    restInt = 999999; targetWalkSpeed = 2.0;
+                    const cycle = Math.floor(mDist / 8000) % 15;
+                    const allKeys = ['plain','v1','i1','c1','g1','a5','dino','ice','ancient','modern','future','stairs','paradise','savanna','forest'];
+                    nextKey = allKeys[cycle];
+                } else if(currentTheme === 'animal') {
+                    // 사파리: 여유롭고 쾌활한 일반 속도 (약 15km/h 느낌)
+                    targetWalkSpeed = 0.25; 
+                    restInt = 5000;
+                    if (mDist > 10000) nextKey = 'tundra';
+                    else if (mDist > 5000) nextKey = 'forest';
+                    else nextKey = 'savanna';
+                } else if(currentTheme === 'nature') {
+                    restInt = 3000;
+                    if(mDist > 50000) nextKey = 'a5';
+                    else if(mDist > 40000) nextKey = 'g1';
+                    else if(mDist > 30000) nextKey = 'c1';
+                    else if(mDist > 20000) nextKey = 'i1';
+                    else if(mDist > 10000) nextKey = 'v1';
+                    else nextKey = 'plain';
+                } else if(currentTheme === 'history') {
+                    if (mDist >= 75000) nextKey = 'paradise';
+                    else if (mDist >= 70000) nextKey = 'stairs';
+                    else if (mDist >= 60000) nextKey = 'a5';
+                    else if (mDist >= 50000) nextKey = 'g1';
+                    else if (mDist >= 40000) nextKey = 'c1';
+                    else if (mDist >= 30000) nextKey = 'i1';
+                    else if (mDist >= 20000) nextKey = 'v1';
+                    else {
+                        if (mDist > 8000) nextKey = 'future';
+                        else if (mDist > 6000) nextKey = 'modern';
+                        else if (mDist > 4000) nextKey = 'ancient';
+                        else if (mDist > 2000) nextKey = 'ice';
+                        else nextKey = 'dino';
+                    }
+                }
+
+                if(nextKey === 'stairs' && currentTheme === 'history') targetWalkSpeed = 0.03;
+
+                // 2. 바이옴 업데이트
+                if(nextKey !== currentBiomeKey) {
+                    currentBiomeKey = nextKey;
+                    const b = biomes.nature[nextKey] || biomes.history[nextKey] || biomes.animal[nextKey];
+                    if(b) {
+                        document.getElementById('path-hud').innerText = `현재: ${b.name}`;
+                        const msg = document.getElementById('message-area');
+                        msg.innerText = b.name; msg.style.opacity = 1;
+                        setTimeout(() => { if(msg) msg.style.opacity = 0; }, 3000);
+                        updateRoadTexture(b.road);
+                        
+                        const pos = terrainMesh.geometry.attributes.position;
+                        for (let i = 0; i < pos.count; i++) {
+                            const x = pos.getX(i);
+                            if (Math.abs(x) < 300) pos.setZ(i, 0); 
+                            else pos.setZ(i, (Math.sin(x * 0.04) * Math.cos(pos.getY(i) * 0.04) * b.detail || 10));
+                        }
+                        pos.needsUpdate = true;
+                    }
+                }
+
+                if(Math.floor(mDist) > 0 && Math.floor(mDist) % restInt === 0 && !isResting) {
+                    isResting = true; isStarted = false;
+                    document.getElementById('rest-modal').style.display = 'block';
+                }
+
+                currentWalkSpeed = THREE.MathUtils.lerp(currentWalkSpeed, targetWalkSpeed, 0.05);
+                distance += currentWalkSpeed;
+
+                if (pathMesh.material.map) pathMesh.material.map.offset.y += currentWalkSpeed * 0.75;
+
+                const b = biomes.nature[currentBiomeKey] || biomes.history[currentBiomeKey] || biomes.animal[currentBiomeKey];
+                if(b) {
+                    let targetCamY, targetRotationX = 0, targetRotationY = 0;
+
+                    if(currentTheme === 'drone') {
+                        targetCamY = 700 + Math.sin(distance * 0.2) * 150;
+                        const angle = distance * 0.4;
+                        camera.position.x = Math.sin(angle) * 1200;
+                        camera.position.z = Math.cos(angle) * 1200;
+                        camera.lookAt(0, 0, 0); 
+                    } else if(currentTheme === 'animal') {
+                        // 사파리: 힐링 뷰 (들판 관찰)
+                        targetCamY = 7 + b.h + (Math.sin(distance * 3) * 0.3);
+                        targetRotationY = Math.sin(distance * 0.4) * 0.4; // 자연스러운 시선 처리
+                        camera.position.x = 0; camera.position.z = 100;
+                        camera.rotation.y = targetRotationY;
+                        petalParticles.material.opacity = 0.6; // 꽃잎 효과 활성화
+                    } else {
+                        targetCamY = 9 + b.h + (Math.sin(distance * 6) * 0.5);
+                        if(currentBiomeKey === 'stairs') targetCamY += Math.abs(Math.sin(distance * 15)) * 4;
+                        camera.position.x = 0; camera.position.z = 70; camera.rotation.y = 0;
+                        petalParticles.material.opacity = 0;
+                    }
+
+                    if(currentTheme !== 'drone') {
+                        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCamY, 0.05);
+                    }
+
+                    terrainMesh.material.color.lerp(new THREE.Color(b.ground), 0.05);
+                    scene.background.lerp(new THREE.Color(b.sky || 0x000000), 0.05);
+                    scene.fog.color.lerp(new THREE.Color(b.sky || 0x000000), 0.05);
+                }
+
+                // 3. 스폰 로직 (힐링 요소 대량 투입)
+                let spawnChance = (currentTheme === 'animal') ? 0.4 : 0.15;
+                if(Math.random() < spawnChance) {
+                    if(currentTheme === 'animal') {
+                        const types = ['animal','tree','butterfly','pond','flower_cluster','willow_tree','rock'];
+                        spawnObject(types[Math.floor(Math.random()*types.length)]);
+                    } else if(currentBiomeKey === 'dino') spawnObject('dino');
+                    else if(currentBiomeKey.includes('planet')) spawnObject('ufo');
+                }
+
+                animals.forEach((a, i) => {
+                    a.position.z += currentWalkSpeed * 700;
+                    if(a.userData.type === 'butterfly') {
+                        a.userData.phase += 0.2;
+                        a.userData.wing.children[0].rotation.y = Math.sin(a.userData.phase) * 1.5;
+                        a.userData.wing.children[1].rotation.y = -Math.sin(a.userData.phase) * 1.5;
+                        a.position.y = 5 + Math.sin(a.userData.phase * 0.5) * 5;
+                        a.position.x += Math.cos(a.userData.phase * 0.2) * 2;
+                    }
+                    if(a.position.z > 1000) { scene.remove(a); animals.splice(i, 1); }
+                });
+
+                // 힐링 입자 업데이트
+                if(petalParticles && currentTheme === 'animal') {
+                    const pos = petalParticles.geometry.attributes.position.array;
+                    for(let i=0; i<pos.length; i+=3) {
+                        pos[i+1] -= 0.5; // 하강
+                        pos[i+2] += currentWalkSpeed * 800;
+                        if(pos[i+1] < 0) pos[i+1] = 100;
+                        if(pos[i+2] > 200) posArr[i+2] = -1000;
+                    }
+                    petalParticles.geometry.attributes.position.needsUpdate = true;
+                }
+
+                if(particles){
+                    const posArr = particles.geometry.attributes.position.array;
+                    let sMult = (currentBiomeKey === 'stairs') ? 250 : 3000;
+                    for(let i=0; i<posArr.length; i+=3){
+                        posArr[i*3+2] += currentWalkSpeed * sMult;
+                        if(posArr[i*3+2] > 200) posArr[i*3+2] = -30000;
+                    }
+                    particles.geometry.attributes.position.needsUpdate = true;
+                }
+                document.getElementById('dist-hud').innerText = `여정: ${Math.floor(mDist)}m`;
+            } else if (isResting) { camera.rotation.y += 0.005; }
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function start() {
+            document.getElementById('start-screen').classList.add('hidden');
+            isStarted = true;
+            bgmPlayer.play().catch(() => {});
+            currentBiomeKey = (currentTheme === 'nature') ? 'plain' : (currentTheme === 'history' ? 'dino' : (currentTheme === 'animal' ? 'savanna' : 'plain'));
+        }
+
+        init();
+    </script>
+</body>
+</html>
