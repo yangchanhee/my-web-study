@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Odyssey: 30,000m Healing Journey</title>
+    <style>
+        :root {
+            --primary: #556b2f;
+            --secondary: #8b4513;
+            --glass: rgba(255, 255, 255, 0.92);
+            --text: #2c3e50;
+        }
+
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: #000;
+            font-family: 'Pretendard', sans-serif;
+            color: var(--text);
+            user-select: none;
+            touch-action: none;
+        }
+
+        #ui-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column; z-index: 10;
+        }
+
+        #hud { display: flex; justify-content: space-between; padding: 25px; opacity: 0; transition: 1s; }
+        .hud-item {
+            background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(15px);
+            padding: 12px 24px; border-radius: 50px; font-size: 1rem;
+            color: var(--text); font-weight: 700; border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        /* Splash Screen */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1a1a2e;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 100; transition: opacity 0.8s ease-out;
+            pointer-events: auto;
+        }
+        .splash-hint {
+            color: white; font-size: 1.1rem; letter-spacing: 2px;
+            padding: 20px 40px; border-radius: 50px;
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            animation: breathe 3s infinite ease-in-out;
+        }
+
+        .overlay {
+            pointer-events: auto; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); background: var(--glass);
+            backdrop-filter: blur(25px); padding: 40px; border-radius: 40px;
+            text-align: center; width: 90%; max-width: 580px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.2);
+            display: none; opacity: 0; transition: 0.6s;
+        }
+        .show-menu { display: block; opacity: 1; }
+
+        .theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 25px; }
+        .theme-card {
+            border: 2px solid #eee; border-radius: 20px; padding: 18px;
+            cursor: pointer; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            text-align: left; background: #fff;
+        }
+        .theme-card.active { border-color: var(--primary); background: #fdfdf5; transform: scale(1.02); }
+        .theme-card h3 { margin: 0 0 5px 0; font-size: 1rem; }
+        .theme-card p { margin: 0; font-size: 0.75rem; color: #7f8c8d; line-height: 1.4; }
+
+        .mode-btn { padding: 12px; border-radius: 12px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-weight: 700; color: #555; font-size: 0.85rem; }
+        .mode-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        .start-btn { width: 100%; padding: 20px; border-radius: 20px; border: none; background: var(--primary); color: white; font-size: 1.2rem; font-weight: 800; cursor: pointer; margin-top: 25px; }
+
+        /* Control Buttons (Bottom) */
+        .controls-bottom {
+            position: absolute; bottom: 30px; left: 30px; display: flex; gap: 10px;
+            pointer-events: auto; opacity: 0; transition: 0.3s;
+        }
+        .controls-bottom.visible { opacity: 1; }
+        .icon-btn {
+            width: 55px; height: 55px; background: var(--glass);
+            border-radius: 18px; display: flex; justify-content: center; align-items: center;
+            cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.1); font-size: 1.5rem;
+        }
+
+        .settings-pane {
+            position: absolute; bottom: 100px; left: 30px;
+            background: var(--glass); padding: 25px; border-radius: 30px;
+            width: 350px; display: none; flex-direction: column; gap: 15px;
+            pointer-events: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+        }
+
+        .playlist { max-height: 220px; overflow-y: auto; list-style: none; padding: 0; margin: 5px 0; }
+        .playlist-item { padding: 10px 15px; font-size: 0.8rem; cursor: pointer; border-radius: 8px; margin-bottom: 5px; background: rgba(0,0,0,0.03); border: 1px solid transparent; }
+        .playlist-item.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        #stage-alert {
+            position: absolute; top: 120px; width: 100%; text-align: center;
+            font-size: 2.2rem; font-weight: 900; color: white; text-shadow: 0 0 20px rgba(0,0,0,0.8);
+            pointer-events: none; opacity: 0; transition: 0.8s;
+        }
+
+        @keyframes breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <audio id="bgm-player" loop muted></audio>
+
+    <div id="splash-screen" onclick="showMenu()">
+        <div class="splash-hint">시스템을 활성화하려면 터치하세요</div>
+    </div>
+
+    <div id="ui-container">
+        <div id="hud">
+            <div class="hud-item" id="dist-hud">거리: 0m / 30,000m</div>
+            <div class="hud-item" id="stage-hud">준비 중</div>
+        </div>
+
+        <div id="stage-alert">STAGE CHANGE</div>
+
+        <div id="controls-ui" class="controls-bottom">
+            <div class="icon-btn" onclick="toggleSettings()">⚙️</div>
+            <div class="icon-btn" id="sound-btn" onclick="toggleSound()">🔇</div>
+        </div>
+
+        <div id="settings-pane" class="settings-pane">
+            <h3 style="margin:0; font-size:1.1rem;">기본 힐링 사운드</h3>
+            <ul id="music-list" class="playlist"></ul>
+            <div style="font-size: 0.8rem; font-weight: bold; color: #666; margin-bottom:-10px;">볼륨</div>
+            <input type="range" min="0" max="100" value="50" oninput="updateVolume(this.value)" style="accent-color: var(--primary); cursor:pointer;">
+            <button class="mode-btn" style="background:#eee; border:none; margin-top: 10px;" onclick="toggleSettings()">닫기</button>
+        </div>
+
+        <div id="menu-screen" class="overlay">
+            <h2 style="margin:0; font-size: 1.8rem;">30,000m의 대장정</h2>
+            <p style="font-size:0.9rem; color:#7f8c8d; margin-top:8px;">주행 거리에 따라 4단계로 지형이 변화합니다.</p>
+            
+            <div class="theme-grid">
+                <div class="theme-card active" id="opt-healing" onclick="selectTheme('healing')">
+                    <h3>🌿 힐링 사파리</h3>
+                    <p>산맥과 나비가 흩날리는 숲 (3인칭)</p>
+                </div>
+                <div class="theme-card" id="opt-human" onclick="selectTheme('human')">
+                    <h3>🧬 인류 변화</h3>
+                    <p>원시 흙길부터 미래 문명까지 (1인칭)</p>
+                </div>
+                <div class="theme-card" id="opt-space" onclick="selectTheme('space')">
+                    <h3>🌌 행성 간 이동</h3>
+                    <p>차원을 넘나드는 우주 탐사 (비행)</p>
+                </div>
+                <div class="theme-card" id="opt-drone" onclick="selectTheme('drone')">
+                    <h3>🛸 드론 뷰</h3>
+                    <p>상공에서 바라보는 입체 조망 (오버뷰)</p>
+                </div>
+            </div>
+
+            <button class="start-btn" onclick="startOdyssey()">여정 기록 시작</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, bgmPlayer;
+        let isStarted = false, isMuted = true;
+        let distance = 0, currentSpeed = 0, targetSpeed = 0.015;
+        let terrainMesh, roadMesh, petals;
+        let decoObjects = [], activeTheme = 'healing';
+        let currentStageIndex = -1;
+        let currentPlayPromise = null;
+
+        const stageData = {
+            healing: [
+                { name: "1단계: 평온한 숲", sky: 0xa3c9d9, ground: 0x7d9d75, road: 0xf2e9d0, noise: 30 },
+                { name: "2단계: 꽃의 계곡", sky: 0xfff0f0, ground: 0xffb7c5, road: 0xffffff, noise: 45 },
+                { name: "3단계: 안개 숲", sky: 0xb0bec5, ground: 0x455a64, road: 0x90a4ae, noise: 60 },
+                { name: "4단계: 황금빛 봉우리", sky: 0xffecb3, ground: 0xffa000, road: 0xfff8e1, noise: 90 }
+            ],
+            human: [
+                { name: "1단계: 원시 지형", sky: 0x8d6e63, ground: 0x5d4037, road: 0x3e2723, noise: 50 },
+                { name: "2단계: 고대 문명", sky: 0xffcc80, ground: 0xe67e22, road: 0xf39c12, noise: 30 },
+                { name: "3단계: 산업 시대", sky: 0x90a4ae, ground: 0x263238, road: 0x37474f, noise: 20 },
+                { name: "4단계: 미래 도시", sky: 0x1a237e, ground: 0x0d47a1, road: 0x00e5ff, noise: 15 }
+            ],
+            space: [
+                { name: "1단계: 성간 대기", sky: 0x000000, ground: 0x1a1a2e, road: 0x00f2ff, noise: 100 },
+                { name: "2단계: 붉은 행성", sky: 0x2a0000, ground: 0x800000, road: 0xff4d00, noise: 120 },
+                { name: "3단계: 얼음 행성", sky: 0x001a33, ground: 0xccfbff, road: 0xffffff, noise: 80 },
+                { name: "4단계: 차원의 틈", sky: 0x1a0033, ground: 0x4b0082, road: 0xda70d6, noise: 150 }
+            ],
+            drone: [
+                { name: "드론: 자연의 조망", sky: 0x87ceeb, ground: 0x2d6a4f, road: 0xffffff, noise: 40 },
+                { name: "드론: 사막의 조망", sky: 0xffe0b2, ground: 0xd2b48c, road: 0xfff9c4, noise: 30 },
+                { name: "드론: 심해의 조망", sky: 0x001219, ground: 0x005f73, road: 0x94d2bd, noise: 60 },
+                { name: "드론: 천상의 조망", sky: 0xffffff, ground: 0xbbdefb, road: 0x2196f3, noise: 10 }
+            ]
+        };
+
+        const playlists = [
+            { name: "Forest Meditation", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+            { name: "Serene Morning", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+            { name: "Soft Rain Piano", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
+            { name: "Wind of Memory", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+            { name: "Calm Horizon", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
+            { name: "Peaceful Breath", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" },
+            { name: "Nature Whisper", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" },
+            { name: "Evening Breeze", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" },
+            { name: "Infinite Memory", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3" },
+            { name: "Dawn of Peace", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3" }
+        ];
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000);
+            scene.fog = new THREE.Fog(0x000, 100, 5000);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 50000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            bgmPlayer = document.getElementById('bgm-player');
+            bgmPlayer.src = playlists[0].url;
+
+            createWorld();
+            setupLights();
+            updateMusicUI();
+
+            window.addEventListener('resize', onResize);
+            animate();
+        }
+
+        function createWorld() {
+            const tGeo = new THREE.PlaneGeometry(15000, 35000, 100, 100);
+            const tMat = new THREE.MeshStandardMaterial({ color: 0x222, flatShading: true });
+            terrainMesh = new THREE.Mesh(tGeo, tMat);
+            terrainMesh.rotation.x = -Math.PI/2;
+            terrainMesh.position.z = -15000;
+            scene.add(terrainMesh);
+
+            const rGeo = new THREE.PlaneGeometry(80, 35000);
+            const rMat = new THREE.MeshStandardMaterial({ color: 0x333 });
+            roadMesh = new THREE.Mesh(rGeo, rMat);
+            roadMesh.rotation.x = -Math.PI/2;
+            roadMesh.position.y = 1.1;
+            roadMesh.position.z = -15000;
+            scene.add(roadMesh);
+
+            const pGeo = new THREE.BufferGeometry();
+            const pCount = 2000;
+            const pPos = new Float32Array(pCount * 3);
+            for(let i=0; i<pCount; i++) {
+                pPos[i*3] = (Math.random()-0.5) * 1200;
+                pPos[i*3+1] = Math.random() * 500;
+                pPos[i*3+2] = -Math.random() * 5000;
+            }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            petals = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 4, transparent: true, opacity: 0.5 }));
+            scene.add(petals);
+        }
+
+        function setupLights() {
+            scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2.5));
+            const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+            sun.position.set(500, 1000, 500);
+            scene.add(sun);
+        }
+
+        function updateTerrainShape(noiseVal) {
+            const pos = terrainMesh.geometry.attributes.position;
+            for(let i=0; i<pos.count; i++) {
+                let x = pos.getX(i);
+                let y = pos.getY(i);
+                let dist = Math.abs(x);
+                let h = 0;
+                if(dist > 200) {
+                    h = Math.sin(x*0.01)*Math.cos(y*0.01)*noiseVal + (dist*0.1);
+                }
+                pos.setZ(i, h);
+            }
+            pos.needsUpdate = true;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(isStarted) {
+                const totalDist = 30000;
+                currentSpeed = THREE.MathUtils.lerp(currentSpeed, targetSpeed, 0.05);
+                distance += currentSpeed;
+                const mDist = distance * 10;
+
+                let stageIdx = Math.min(3, Math.floor(mDist / 7500));
+                if(stageIdx !== currentStageIndex) {
+                    currentStageIndex = stageIdx;
+                    triggerStageChange(stageIdx);
+                }
+
+                const cfg = stageData[activeTheme][currentStageIndex];
+                terrainMesh.material.color.lerp(new THREE.Color(cfg.ground), 0.03);
+                roadMesh.material.color.lerp(new THREE.Color(cfg.road), 0.03);
+                scene.background.lerp(new THREE.Color(cfg.sky), 0.03);
+                scene.fog.color.lerp(new THREE.Color(cfg.sky), 0.03);
+                updateTerrainShape(cfg.noise);
+
+                const viewMode = activeTheme === 'drone' ? 'top' : (activeTheme === 'healing' ? '3rd' : '1st');
+                if(viewMode === '1st') {
+                    camera.position.set(0, 15 + Math.sin(distance*5)*0.5, 50);
+                    camera.lookAt(0, 13, -100);
+                } else if(viewMode === '3rd') {
+                    camera.position.set(0, 55, 170);
+                    camera.lookAt(0, 15, -100);
+                } else if(viewMode === 'top') {
+                    const angle = distance * 0.2;
+                    camera.position.set(Math.sin(angle)*1200, 800, Math.cos(angle)*1200);
+                    camera.lookAt(0, 0, 0);
+                }
+
+                const pArr = petals.geometry.attributes.position.array;
+                for(let i=0; i<pArr.length; i+=3) {
+                    pArr[i+1] -= 0.6;
+                    pArr[i+2] += currentSpeed * 1000;
+                    if(pArr[i+1] < 0) pArr[i+1] = 500;
+                    if(pArr[i+2] > 200) pArr[i+2] = -4800;
+                }
+                petals.geometry.attributes.position.needsUpdate = true;
+
+                document.getElementById('dist-hud').innerText = `거리: ${Math.floor(mDist)}m / 30,000m`;
+                document.getElementById('stage-hud').innerText = cfg.name;
+
+                if(mDist >= totalDist) {
+                    isStarted = false;
+                    alert("축하합니다! 30,000m 여정을 완수하셨습니다.");
+                }
+            }
+            renderer.render(scene, camera);
+        }
+
+        function triggerStageChange(idx) {
+            const alert = document.getElementById('stage-alert');
+            alert.innerText = stageData[activeTheme][idx].name;
+            alert.style.opacity = 1;
+            setTimeout(() => { alert.style.opacity = 0; }, 3000);
+        }
+
+        async function playAudio(url) {
+            if (!bgmPlayer) return;
+            if (currentPlayPromise) {
+                await currentPlayPromise.catch(() => {});
+            }
+            try {
+                if (url) {
+                    bgmPlayer.pause();
+                    bgmPlayer.src = url;
+                    bgmPlayer.load();
+                }
+                if (!isMuted) {
+                    currentPlayPromise = bgmPlayer.play();
+                    await currentPlayPromise;
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') console.warn("재생 실패:", err);
+            }
+        }
+
+        function toggleSound() {
+            isMuted = !isMuted;
+            bgmPlayer.muted = isMuted;
+            document.getElementById('sound-btn').innerText = isMuted ? "🔇" : "🔊";
+            if(!isMuted) playAudio();
+            else bgmPlayer.pause();
+        }
+
+        function updateMusicUI() {
+            const list = document.getElementById('music-list');
+            list.innerHTML = '';
+            playlists.forEach((t, i) => {
+                const li = document.createElement('li');
+                li.className = 'playlist-item';
+                const fullUrl = new URL(t.url, window.location.href).href;
+                if (bgmPlayer.src === fullUrl) li.classList.add('active');
+                li.innerText = `${i+1}. ${t.name}`;
+                li.onclick = () => {
+                    playAudio(t.url);
+                    updateMusicUI();
+                };
+                list.appendChild(li);
+            });
+        }
+
+        function toggleSettings() {
+            const p = document.getElementById('settings-pane');
+            p.style.display = p.style.display === 'flex' ? 'none' : 'flex';
+            if (p.style.display === 'flex') updateMusicUI();
+        }
+
+        function showMenu() {
+            document.getElementById('splash-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.display = 'none';
+                document.getElementById('menu-screen').classList.add('show-menu');
+            }, 800);
+        }
+
+        function startOdyssey() {
+            document.getElementById('menu-screen').classList.remove('show-menu');
+            document.getElementById('hud').style.opacity = '1';
+            document.getElementById('controls-ui').classList.add('visible');
+            isStarted = true;
+        }
+
+        function selectTheme(t) {
+            activeTheme = t;
+            document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+            document.getElementById('opt-' + t).classList.add('active');
+        }
+
+        function updateVolume(v) { bgmPlayer.volume = v/100; }
+        function onResize() {
+            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        init();
+    </script>
+</body>
+</html>
