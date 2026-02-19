@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>3D Ocean World (Ultimate Expansion)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; touch-action: none; }
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: 'Noto Sans KR', sans-serif;
+            pointer-events: none;
+            text-shadow: 1px 1px 2px black;
+            z-index: 10;
+        }
+        h1 { margin: 0; font-size: 1.5rem; color: #00ffff; }
+        .depth-meter { font-size: 1.2rem; font-weight: bold; color: #ffff00; }
+        .controls-info {
+            position: absolute;
+            top: 100px;
+            left: 20px;
+            color: rgba(255,255,255,0.8);
+            font-size: 0.8rem;
+            pointer-events: none;
+            background: rgba(0,0,0,0.4);
+            padding: 8px;
+            border-radius: 8px;
+            line-height: 1.4;
+        }
+
+        /* --- 터치 컨트롤 UI --- */
+        .touch-controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            height: 150px;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 20;
+        }
+
+        #joystick-zone {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            pointer-events: auto;
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 255, 255, 0.5);
+            border-radius: 50%;
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            transition: transform 0.1s;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+        }
+        .btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+        .btn:active { background: rgba(0, 255, 255, 0.3); }
+
+        #look-zone {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 50%;
+            height: 100%;
+            z-index: 5;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h1>3D 오션 월드</h1>
+        <div>고도: <span id="depth-display" class="depth-meter">0</span>m</div>
+        <div id="env-status">환경: 얕은 바다</div>
+    </div>
+
+    <div class="controls-info">
+        PC: WASD 이동 / 드래그 시점<br>
+        Mobile: 조이스틱 / 드래그 / ▲▼ 버튼<br>
+        <span style="color:#aaa;">* 모바일 가로/세로 전환 대응</span><br>
+        <span style="color:#ffcc00;">* 물고기 떼 대폭 증가, 낚시꾼과 배 추가!</span>
+    </div>
+
+    <div id="look-zone"></div>
+
+    <div class="touch-controls">
+        <div id="joystick-zone"><div id="joystick-knob"></div></div>
+        <div class="action-buttons">
+            <div class="btn" id="btn-up">▲</div>
+            <div class="btn" id="btn-down">▼</div>
+        </div>
+    </div>
+
+<script>
+    // --- 1. 기본 설정 ---
+    const scene = new THREE.Scene();
+    const waterColor = new THREE.Color(0x006994);
+    const skyColor = new THREE.Color(0x87CEEB);
+    scene.fog = new THREE.FogExp2(waterColor, 0.015);
+    scene.background = waterColor;
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 5, 50);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // --- 2. 조명 ---
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    sunLight.position.set(200, 300, -200);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 1000;
+    sunLight.shadow.camera.left = -500;
+    sunLight.shadow.camera.right = 500;
+    sunLight.shadow.camera.top = 500;
+    sunLight.shadow.camera.bottom = -500;
+    scene.add(sunLight);
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    scene.add(ambientLight);
+
+    const spotLight = new THREE.SpotLight(0xffffff, 0);
+    spotLight.angle = Math.PI / 5;
+    spotLight.penumbra = 0.3;
+    spotLight.distance = 150;
+    spotLight.castShadow = true;
+    camera.add(spotLight);
+    spotLight.position.set(0, 0, 0);
+    spotLight.target.position.set(0, 0, -1);
+    camera.add(spotLight.target);
+    scene.add(camera);
+
+    const sunMat = new THREE.MeshBasicMaterial({ color: 0xffffdd });
+    const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(30, 32, 32), sunMat);
+    sunMesh.position.copy(sunLight.position);
+    scene.add(sunMesh);
+
+    const animatedObjects = []; 
+    const seaweeds = [];
+
+    // 해저 깊이 계산 함수
+    function getSeabedDepth(x, y) {
+        const depthSlope = (y - 50) * 0.2; 
+        const noise = Math.sin(x * 0.05) * Math.cos(y * 0.05) * 10;
+        return Math.min(-20, depthSlope + noise - 40); 
+    }
+
+    // --- 3. 환경 생성 ---
+    const waterGeo = new THREE.PlaneGeometry(2000, 2000);
+    const waterMat = new THREE.MeshStandardMaterial({
+        color: 0x0099ff, transparent: true, opacity: 0.4, side: THREE.DoubleSide, roughness: 0.1
+    });
+    const waterSurface = new THREE.Mesh(waterGeo, waterMat);
+    waterSurface.rotation.x = -Math.PI / 2;
+    scene.add(waterSurface);
+
+    // 해저 지형
+    const seaBedGeo = new THREE.PlaneGeometry(1000, 1000, 64, 64);
+    const posAttr = seaBedGeo.attributes.position;
+    for (let i = 0; i < posAttr.count; i++) {
+        const x = posAttr.getX(i);
+        const y = posAttr.getY(i);
+        posAttr.setZ(i, getSeabedDepth(x, y)); 
+    }
+    seaBedGeo.computeVertexNormals();
+    const seaBedMat = new THREE.MeshStandardMaterial({ color: 0xc2b280, roughness: 1.0 });
+    const seaBed = new THREE.Mesh(seaBedGeo, seaBedMat);
+    seaBed.rotation.x = -Math.PI / 2;
+    seaBed.receiveShadow = true;
+    scene.add(seaBed);
+
+    // 구름 생성
+    function createClouds() {
+        const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0 });
+        for(let i=0; i<20; i++) {
+            const cloudGroup = new THREE.Group();
+            for(let j=0; j<5; j++) { 
+                const puff = new THREE.Mesh(new THREE.SphereGeometry(5 + Math.random()*5), cloudMat);
+                puff.position.set((Math.random()-0.5)*15, (Math.random()-0.5)*5, (Math.random()-0.5)*10);
+                cloudGroup.add(puff);
+            }
+            cloudGroup.position.set((Math.random()-0.5)*800, 100 + Math.random()*50, (Math.random()-0.5)*800);
+            scene.add(cloudGroup);
+        }
+    }
+    createClouds();
+
+    // 철새 떼 생성 (New 1)
+    function createBirds() {
+        const birdMat = new THREE.MeshBasicMaterial({color: 0x222222});
+        for(let f=0; f<3; f++) {
+            const flock = new THREE.Group();
+            for(let i=0; i<7; i++) {
+                const birdGeo = new THREE.ConeGeometry(0.5, 2, 3);
+                const bird = new THREE.Mesh(birdGeo, birdMat);
+                bird.rotation.x = Math.PI/2;
+                bird.position.set((i%2===0?-1:1)*i*2, 0, -i*2); // V자 대형
+                flock.add(bird);
+            }
+            flock.position.set((Math.random()-0.5)*600, 80 + Math.random()*40, (Math.random()-0.5)*600);
+            flock.userData = { type: 'flock', speed: 0.5 + Math.random()*0.2 };
+            scene.add(flock);
+            animatedObjects.push(flock);
+        }
+    }
+    createBirds();
+
+    // 산호초, 바위 및 성게 생성 (New 2)
+    function createCoralsAndRocks() {
+        const rockMat = new THREE.MeshStandardMaterial({color: 0x555555, roughness: 0.9});
+        const urchinMat = new THREE.MeshStandardMaterial({color: 0x111111, roughness: 1.0}); // 성게
+        const coralColors = [0xff7777, 0x77ff77, 0x7777ff, 0xffff77];
+        
+        for(let i=0; i<150; i++) {
+            const x = (Math.random() - 0.5) * 600;
+            const z = (Math.random() - 0.5) * 600;
+            const depth = getSeabedDepth(x, z);
+            const rand = Math.random();
+            
+            if(rand > 0.6) { // 바위
+                const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(2 + Math.random()*3), rockMat);
+                rock.position.set(x, depth, z);
+                rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+                scene.add(rock);
+            } else if (rand > 0.2 && depth > -60) { // 산호
+                const cColor = coralColors[Math.floor(Math.random() * coralColors.length)];
+                const coral = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 3+Math.random()*4), new THREE.MeshStandardMaterial({color: cColor}));
+                coral.position.set(x, depth + 2, z);
+                coral.rotation.x = (Math.random()-0.5)*0.5;
+                coral.rotation.z = (Math.random()-0.5)*0.5;
+                scene.add(coral);
+            } else if (depth > -50) { // 성게 (Icosahedron으로 가시효과)
+                const urchin = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), urchinMat);
+                urchin.position.set(x, depth + 0.3, z);
+                scene.add(urchin);
+            }
+        }
+    }
+    createCoralsAndRocks();
+
+
+    // --- 4. 섬, 마을, 사람, 불가사리, 꽃게 생성 ---
+    function createIsland(x, z, scale) {
+        const islandGroup = new THREE.Group();
+        islandGroup.position.set(x, 0, z);
+        islandGroup.scale.set(scale, scale, scale);
+
+        const mountainGeo = new THREE.ConeGeometry(30, 40, 16);
+        const mountainMat = new THREE.MeshStandardMaterial({ color: 0x2e8b57 });
+        const mountain = new THREE.Mesh(mountainGeo, mountainMat);
+        mountain.position.y = 10;
+        mountain.castShadow = true;
+        islandGroup.add(mountain);
+
+        const beachGeo = new THREE.CylinderGeometry(45, 50, 6, 16);
+        const beachMat = new THREE.MeshStandardMaterial({ color: 0xF4A460 });
+        const beach = new THREE.Mesh(beachGeo, beachMat);
+        beach.position.y = -2;
+        beach.receiveShadow = true;
+        islandGroup.add(beach);
+
+        // 집 배치
+        const houseMat = new THREE.MeshStandardMaterial({color: 0xfdf5e6});
+        const roofMat = new THREE.MeshStandardMaterial({color: 0x8b0000}); 
+        for(let i=0; i<3; i++) {
+            const hAngle = Math.random() * Math.PI * 2;
+            const hRadius = 18 + Math.random() * 8;
+            const houseGroup = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 4), houseMat);
+            base.position.y = 1.5; base.castShadow = true; houseGroup.add(base);
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(3.5, 3, 4), roofMat);
+            roof.position.y = 4.5; roof.rotation.y = Math.PI / 4; roof.castShadow = true; houseGroup.add(roof);
+            houseGroup.position.set(Math.cos(hAngle) * hRadius, 1, Math.sin(hAngle) * hRadius);
+            houseGroup.lookAt(0, 1, 0); 
+            islandGroup.add(houseGroup);
+        }
+
+        // 야자수 배치
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+        for(let i=0; i<8; i++) {
+            const tAngle = Math.random() * Math.PI * 2;
+            const tRadius = 25 + Math.random() * 15;
+            const treeGroup = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.8, 8), trunkMat);
+            trunk.position.y = 4; trunk.castShadow = true; treeGroup.add(trunk);
+            const leaf = new THREE.Mesh(new THREE.ConeGeometry(4, 3, 8), leafMat);
+            leaf.position.y = 8; leaf.castShadow = true; treeGroup.add(leaf);
+            treeGroup.position.set(Math.cos(tAngle) * tRadius, 0, Math.sin(tAngle) * tRadius);
+            islandGroup.add(treeGroup);
+        }
+
+        // 불가사리 (New 3)
+        const starMat = new THREE.MeshStandardMaterial({color: 0xff6699});
+        for(let i=0; i<8; i++) {
+            const sAngle = Math.random() * Math.PI * 2;
+            const sRadius = 38 + Math.random() * 6; // 해변가
+            const star = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.2, 5), starMat);
+            star.position.set(Math.cos(sAngle)*sRadius, 0.5, Math.sin(sAngle)*sRadius);
+            islandGroup.add(star);
+        }
+
+        // 꽃게 (New 4)
+        const crabMat = new THREE.MeshStandardMaterial({color: 0xff3333});
+        for(let i=0; i<5; i++) {
+            const cAngle = Math.random() * Math.PI * 2;
+            const cRadius = 35 + Math.random() * 8;
+            const crab = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.6), crabMat);
+            crab.position.set(Math.cos(cAngle)*cRadius, 0.5, Math.sin(cAngle)*cRadius);
+            crab.userData = { type: 'crab', baseX: crab.position.x, baseZ: crab.position.z, angle: cAngle, offset: Math.random()*10 };
+            islandGroup.add(crab);
+            animatedObjects.push(crab); // Group 대신 Mesh를 직접 추가 (섬 내부 로컬좌표 이동)
+        }
+
+        // 뗏목
+        const raftGroup = new THREE.Group();
+        const logMat = new THREE.MeshStandardMaterial({color: 0x6b4226});
+        for(let r=0; r<5; r++) {
+            const log = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 5), logMat);
+            log.rotation.z = Math.PI/2;
+            log.position.z = r * 0.6 - 1.2;
+            raftGroup.add(log);
+        }
+        raftGroup.position.set(40, -1, 0);
+        raftGroup.userData = { type: 'raft', baseY: -1, offset: Math.random()*10 };
+        islandGroup.add(raftGroup);
+        animatedObjects.push(raftGroup);
+
+        // 모닥불
+        const fireGroup = new THREE.Group();
+        const fireLog = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 0.5), trunkMat);
+        const fireLog2 = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 0.5), trunkMat);
+        fireLog2.rotation.y = Math.PI/2;
+        fireGroup.add(fireLog); fireGroup.add(fireLog2);
+        
+        const flameMat = new THREE.MeshBasicMaterial({color: 0xff5500, transparent: true, opacity: 0.8});
+        const flame = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2, 4), flameMat);
+        flame.position.y = 1;
+        fireGroup.add(flame);
+        
+        const fireLight = new THREE.PointLight(0xffaa00, 1.5, 30);
+        fireLight.position.y = 2;
+        fireGroup.add(fireLight);
+        
+        fireGroup.position.set(10, 1.2, 10);
+        fireGroup.userData = { type: 'campfire', flame: flame, light: fireLight };
+        islandGroup.add(fireGroup);
+        animatedObjects.push(fireGroup);
+
+        scene.add(islandGroup);
+        
+        // 사람 배치
+        for(let i=0; i<4; i++) createHuman(islandGroup, 20 + Math.random() * 15);
+        
+        // 낚시꾼 1명 배치 (해변가 끝쪽)
+        createFisherman(islandGroup, 35, Math.random() * Math.PI * 2);
+
+        createSchoolOfFish(x, z, scale);
+    }
+
+    // [신규] 놀이공원 섬 생성 (상점 및 놀이기구 포함)
+    function createAmusementPark(x, z, scale) {
+        const parkGroup = new THREE.Group();
+        parkGroup.position.set(x, 0, z);
+        parkGroup.scale.set(scale, scale, scale);
+
+        // 섬 바닥 (넓은 해변)
+        const beachGeo = new THREE.CylinderGeometry(65, 70, 6, 32);
+        const beachMat = new THREE.MeshStandardMaterial({ color: 0xF4A460 });
+        const beach = new THREE.Mesh(beachGeo, beachMat);
+        beach.position.y = -2;
+        beach.receiveShadow = true;
+        parkGroup.add(beach);
+
+        // 1. 상점 (Shop)
+        const shopGroup = new THREE.Group();
+        const shopMat = new THREE.MeshStandardMaterial({color: 0xffeebb});
+        const shopBase = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 8), shopMat);
+        shopBase.position.y = 3; shopBase.castShadow = true;
+        shopGroup.add(shopBase);
+        
+        // 상점 차양 (Awning)
+        const awningMat = new THREE.MeshStandardMaterial({color: 0xff3333});
+        const awning = new THREE.Mesh(new THREE.BoxGeometry(11, 0.5, 4), awningMat);
+        awning.position.set(0, 6, 4);
+        awning.rotation.x = Math.PI / 8;
+        awning.castShadow = true;
+        shopGroup.add(awning);
+
+        // 상점 창문/문
+        const windowMat = new THREE.MeshStandardMaterial({color: 0x88ccff, transparent: true, opacity: 0.8});
+        const shopWindow = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), windowMat);
+        shopWindow.position.set(2, 3, 4.01);
+        shopGroup.add(shopWindow);
+        const doorMat = new THREE.MeshStandardMaterial({color: 0x8b4513});
+        const door = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 4), doorMat);
+        door.position.set(-2, 2, 4.01);
+        shopGroup.add(door);
+
+        shopGroup.position.set(-25, 1, 15);
+        shopGroup.rotation.y = Math.PI / 5;
+        parkGroup.add(shopGroup);
+
+        // 2. 대관람차 (Ferris Wheel)
+        const ferrisGroup = new THREE.Group();
+        ferrisGroup.position.set(15, 1, -20);
+        
+        const supportMat = new THREE.MeshStandardMaterial({color: 0xaaaaaa, metalness: 0.6});
+        const support1 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1, 30), supportMat);
+        support1.position.set(0, 14, -5); support1.rotation.x = Math.PI/10;
+        const support2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1, 30), supportMat);
+        support2.position.set(0, 14, 5); support2.rotation.x = -Math.PI/10;
+        ferrisGroup.add(support1); ferrisGroup.add(support2);
+
+        const wheelCenter = new THREE.Group();
+        wheelCenter.position.set(0, 26, 0);
+        const wheelGeo = new THREE.TorusGeometry(18, 0.4, 8, 32);
+        const wheelMat = new THREE.MeshStandardMaterial({color: 0x33dd33});
+        wheelCenter.add(new THREE.Mesh(wheelGeo, wheelMat));
+        
+        const cabins = [];
+        const cabinMat = new THREE.MeshStandardMaterial({color: 0xff33aa});
+        for(let i=0; i<10; i++) {
+            const angle = (i / 10) * Math.PI * 2;
+            const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 18), supportMat);
+            spoke.position.set(Math.cos(angle)*9, Math.sin(angle)*9, 0);
+            spoke.rotation.z = angle + Math.PI/2;
+            wheelCenter.add(spoke);
+
+            const cabinGroup = new THREE.Group();
+            cabinGroup.position.set(Math.cos(angle)*18, Math.sin(angle)*18, 0);
+            const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.5, 3.5, 3.5), cabinMat);
+            cabin.position.y = -2; // 매달린 형태
+            cabinGroup.add(cabin);
+            wheelCenter.add(cabinGroup);
+            cabins.push(cabinGroup);
+        }
+        ferrisGroup.add(wheelCenter);
+        
+        // 관람차 화려한 조명
+        const fwLight = new THREE.PointLight(0xffaa00, 1.5, 60);
+        fwLight.position.set(0, 26, 15);
+        ferrisGroup.add(fwLight);
+
+        wheelCenter.userData = { type: 'ferrisWheel', cabins: cabins, speed: 0.3 };
+        animatedObjects.push(wheelCenter);
+        parkGroup.add(ferrisGroup);
+
+        // 3. 회전목마 (Merry-Go-Round)
+        const carouselGroup = new THREE.Group();
+        carouselGroup.position.set(25, 1, 20);
+        
+        const cBase = new THREE.Mesh(new THREE.CylinderGeometry(12, 12, 1, 32), new THREE.MeshStandardMaterial({color: 0xaa33aa}));
+        cBase.position.y = 0.5;
+        carouselGroup.add(cBase);
+        
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(13, 6, 32), new THREE.MeshStandardMaterial({color: 0xffcc00}));
+        roof.position.y = 9;
+        carouselGroup.add(roof);
+
+        const centerPole = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 8), new THREE.MeshStandardMaterial({color: 0xffffff}));
+        centerPole.position.y = 5;
+        carouselGroup.add(centerPole);
+
+        const horses = new THREE.Group();
+        const horseMeshes = [];
+        for(let i=0; i<6; i++) {
+            const angle = (i / 6) * Math.PI * 2;
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 8), supportMat);
+            pole.position.set(Math.cos(angle)*8, 4.5, Math.sin(angle)*8);
+            horses.add(pole);
+
+            // 말(대체 도형)
+            const horse = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.5, 0.8), new THREE.MeshStandardMaterial({color: i%2===0?0xffffff:0x555555}));
+            horse.position.set(Math.cos(angle)*8, 4.5, Math.sin(angle)*8);
+            horse.rotation.y = -angle; 
+            horse.userData = { baseY: 4.5, offset: i };
+            horses.add(horse);
+            horseMeshes.push(horse);
+        }
+        carouselGroup.add(horses);
+        
+        const cLight = new THREE.PointLight(0xff55ff, 1.5, 40);
+        cLight.position.set(0, 5, 0);
+        carouselGroup.add(cLight);
+
+        horses.userData = { type: 'carousel', horseMeshes: horseMeshes, speed: 0.8 };
+        animatedObjects.push(horses);
+        parkGroup.add(carouselGroup);
+
+        // 공원 주변에 수많은 관광객 추가
+        for(let i=0; i<20; i++) createHuman(parkGroup, 10 + Math.random() * 45);
+
+        scene.add(parkGroup);
+    }
+
+    function createSchoolOfFish(islandX, islandZ, scale) {
+        const fishCount = 30;
+        const fishMat = new THREE.MeshStandardMaterial({color: 0xffdd00}); 
+        const fishGeo = new THREE.ConeGeometry(0.2, 0.8, 4);
+        for(let i=0; i<fishCount; i++) {
+            const fish = new THREE.Mesh(fishGeo, fishMat);
+            fish.rotation.x = Math.PI/2; 
+            const radius = 35 * scale + Math.random() * 15; 
+            const angle = Math.random() * Math.PI * 2;
+            const depth = -2 - Math.random() * 8; 
+            fish.position.set(islandX + Math.cos(angle)*radius, depth, islandZ + Math.sin(angle)*radius);
+            fish.userData = { type: 'schoolFish', islandX: islandX, islandZ: islandZ, radius: radius, angle: angle, speed: 0.01 + Math.random() * 0.01, yOffset: depth, clock: Math.random() * 10 };
+            scene.add(fish);
+            animatedObjects.push(fish);
+        }
+    }
+
+    // 낚시꾼 생성 함수
+    function createFisherman(parentIsland, radius, angle) {
+        const humanGroup = new THREE.Group();
+        const skinMat = new THREE.MeshStandardMaterial({color: 0xffccaa});
+        const shirtMat = new THREE.MeshStandardMaterial({color: 0xff5555}); // 빨간 셔츠
+        const pantsMat = new THREE.MeshStandardMaterial({color: 0x3333cc});
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.4), skinMat); head.position.y = 2.4; humanGroup.add(head);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.4), shirtMat); body.position.y = 1.4; humanGroup.add(body);
+        
+        // 낚싯대를 든 팔
+        const armGeo = new THREE.BoxGeometry(0.25, 1.0, 0.25); armGeo.translate(0, -0.4, 0); 
+        const leftArm = new THREE.Mesh(armGeo, skinMat); leftArm.position.set(-0.55, 1.8, 0); leftArm.rotation.x = -Math.PI/3; humanGroup.add(leftArm);
+        const rightArm = new THREE.Mesh(armGeo, skinMat); rightArm.position.set(0.55, 1.8, 0); rightArm.rotation.x = -Math.PI/3; humanGroup.add(rightArm);
+        
+        const legGeo = new THREE.BoxGeometry(0.3, 1.0, 0.3); legGeo.translate(0, -0.5, 0);
+        const leftLeg = new THREE.Mesh(legGeo, pantsMat); leftLeg.position.set(-0.2, 0.8, 0); humanGroup.add(leftLeg);
+        const rightLeg = new THREE.Mesh(legGeo, pantsMat); rightLeg.position.set(0.2, 0.8, 0); humanGroup.add(rightLeg);
+
+        // 낚싯대
+        const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 5), new THREE.MeshStandardMaterial({color: 0x222222}));
+        rod.position.set(0, 2.5, 2);
+        rod.rotation.x = Math.PI / 3;
+        humanGroup.add(rod);
+
+        // 낚싯줄
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 4.5, 4), new THREE.Vector3(0, -1, 4)]);
+        const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.5}));
+        humanGroup.add(line);
+
+        // 찌 (수면에 떠 있는 부분)
+        const bobber = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({color: 0xff0000}));
+        bobber.position.set(0, -1, 4);
+        humanGroup.add(bobber);
+
+        humanGroup.position.set(Math.cos(angle) * radius, 1.0, Math.sin(angle) * radius);
+        humanGroup.lookAt(0, 1.0, 0);
+        humanGroup.rotation.y += Math.PI; // 바다 쪽을 바라봄
+
+        humanGroup.userData = { type: 'fisherman', bobber: bobber, offset: Math.random() * 100 };
+        parentIsland.add(humanGroup);
+        animatedObjects.push(humanGroup);
+    }
+
+    function createHuman(parentIsland, radius) {
+        const humanGroup = new THREE.Group();
+        const skinMat = new THREE.MeshStandardMaterial({color: 0xffccaa});
+        const shirtMat = new THREE.MeshStandardMaterial({color: Math.random() * 0xffffff});
+        const pantsMat = new THREE.MeshStandardMaterial({color: 0x3333cc});
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.4), skinMat); head.position.y = 2.4; humanGroup.add(head);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.4), shirtMat); body.position.y = 1.4; humanGroup.add(body);
+        const armGeo = new THREE.BoxGeometry(0.25, 1.0, 0.25); armGeo.translate(0, -0.4, 0); 
+        const leftArm = new THREE.Mesh(armGeo, skinMat); leftArm.position.set(-0.55, 1.8, 0); humanGroup.add(leftArm);
+        const rightArm = new THREE.Mesh(armGeo, skinMat); rightArm.position.set(0.55, 1.8, 0); humanGroup.add(rightArm);
+        const legGeo = new THREE.BoxGeometry(0.3, 1.0, 0.3); legGeo.translate(0, -0.5, 0);
+        const leftLeg = new THREE.Mesh(legGeo, pantsMat); leftLeg.position.set(-0.2, 0.8, 0); humanGroup.add(leftLeg);
+        const rightLeg = new THREE.Mesh(legGeo, pantsMat); rightLeg.position.set(0.2, 0.8, 0); humanGroup.add(rightLeg);
+
+        const angle = Math.random() * Math.PI * 2;
+        humanGroup.position.set(Math.cos(angle) * radius, 1.0, Math.sin(angle) * radius);
+        humanGroup.userData = { type: 'human', baseRadius: radius, angle: angle, speed: 0.003 + Math.random() * 0.004, leftArm: leftArm, rightArm: rightArm, leftLeg: leftLeg, rightLeg: rightLeg };
+        parentIsland.add(humanGroup);
+        animatedObjects.push(humanGroup);
+    }
+
+    createIsland(-50, -50, 1);
+    createIsland(120, 60, 1.3);
+    createIsland(-80, 120, 0.8);
+    createAmusementPark(0, -120, 1.2);
+
+    // 해초(Kelp)
+    function createKelp(x, z, depth) {
+        const height = 10 + Math.random() * 20;
+        const geo = new THREE.PlaneGeometry(1, height, 1, 8);
+        geo.translate(0, height / 2, 0);
+        const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.0, 0.2+Math.random()*0.4, 0.1), side: THREE.DoubleSide, roughness: 0.8 });
+        const kelp = new THREE.Mesh(geo, mat);
+        kelp.position.set(x, depth, z);
+        kelp.rotation.y = Math.random() * Math.PI;
+        
+        const posAttr = geo.attributes.position;
+        kelp.userData.baseX = new Float32Array(posAttr.count);
+        for(let i=0; i<posAttr.count; i++) kelp.userData.baseX[i] = posAttr.getX(i);
+        kelp.userData.phase = Math.random() * Math.PI * 2;
+        scene.add(kelp);
+        seaweeds.push(kelp);
+    }
+    for(let i=0; i<150; i++) {
+        const kX = (Math.random() - 0.5) * 600;
+        const kZ = (Math.random() - 0.5) * 600;
+        const kDepth = getSeabedDepth(kX, kZ);
+        if (kDepth < -5 && kDepth > -120) createKelp(kX, kZ, kDepth);
+    }
+
+    // 난파선 및 보물상자 (New 5, 6), 해저 열수구 (New 9)
+    function createDeepSeaFeatures() {
+        const shipX = 30, shipZ = 100;
+        const shipDepth = getSeabedDepth(shipX, shipZ);
+        
+        // 난파선
+        const shipGroup = new THREE.Group();
+        const woodMat = new THREE.MeshStandardMaterial({color: 0x4d3319, roughness: 1.0});
+        const hullGeo = new THREE.BoxGeometry(10, 8, 25);
+        const hull = new THREE.Mesh(hullGeo, woodMat);
+        hull.rotation.z = Math.PI/6; // 기울어짐
+        hull.position.y = 4;
+        shipGroup.add(hull);
+        
+        const mastGeo = new THREE.CylinderGeometry(0.5, 0.5, 20);
+        const mast = new THREE.Mesh(mastGeo, woodMat);
+        mast.rotation.x = Math.PI/4; // 부러진 돛대
+        mast.position.set(0, 10, -5);
+        shipGroup.add(mast);
+
+        shipGroup.position.set(shipX, shipDepth, shipZ);
+        shipGroup.rotation.y = Math.PI/3;
+        scene.add(shipGroup);
+
+        // 보물상자
+        const chestGeo = new THREE.BoxGeometry(2, 1.5, 3);
+        const chestMat = new THREE.MeshStandardMaterial({color: 0x886622, metalness: 0.5});
+        const chest = new THREE.Mesh(chestGeo, chestMat);
+        chest.position.set(shipX - 10, shipDepth + 0.5, shipZ + 5);
+        scene.add(chest);
+
+        const goldLight = new THREE.PointLight(0xffdd00, 2, 20);
+        goldLight.position.set(shipX - 10, shipDepth + 2, shipZ + 5);
+        scene.add(goldLight);
+
+        // 열수구 (Hydrothermal Vent)
+        const ventX = -100, ventZ = -80;
+        const ventDepth = getSeabedDepth(ventX, ventZ);
+        const ventMat = new THREE.MeshStandardMaterial({color: 0x222222});
+        const vent = new THREE.Mesh(new THREE.ConeGeometry(5, 15, 8), ventMat);
+        vent.position.set(ventX, ventDepth + 7, ventZ);
+        scene.add(vent);
+
+        // 검은 연기 파티클
+        const smokeGeo = new THREE.BufferGeometry();
+        const sPosArray = new Float32Array(200 * 3);
+        for(let i=0; i<200*3; i+=3) {
+            sPosArray[i] = ventX + (Math.random()-0.5)*2;
+            sPosArray[i+1] = ventDepth + 15 + Math.random()*20;
+            sPosArray[i+2] = ventZ + (Math.random()-0.5)*2;
+        }
+        smokeGeo.setAttribute('position', new THREE.BufferAttribute(sPosArray, 3));
+        const smokeMat = new THREE.PointsMaterial({size: 2, color: 0x111111, transparent: true, opacity: 0.6});
+        const smoke = new THREE.Points(smokeGeo, smokeMat);
+        smoke.userData = { type: 'smoke', baseX: ventX, baseZ: ventZ, baseY: ventDepth+15 };
+        scene.add(smoke);
+        animatedObjects.push(smoke);
+    }
+    createDeepSeaFeatures();
+
+    // --- 5. 바다 생물 추가 ---
+    function createCreature(type, x, y, z) {
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+        let mesh, tail;
+
+        if (type === 'shark') {
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.4 });
+            mesh = new THREE.Mesh(new THREE.SphereGeometry(2, 16, 16), bodyMat);
+            mesh.scale.set(1, 2.5, 1); mesh.rotation.z = Math.PI / 2; group.add(mesh);
+            const dorsal = new THREE.Mesh(new THREE.ConeGeometry(1, 2, 4).scale(1,1,0.2), bodyMat); dorsal.position.set(0, 1.5, 0); group.add(dorsal);
+            tail = new THREE.Mesh(new THREE.ConeGeometry(1, 2, 4).scale(0.5,1,0.2), bodyMat); tail.rotation.x = Math.PI/2; tail.position.set(-3.5, 0, 0); group.add(tail);
+        
+        } else if (type === 'manta') { // 만타 가오리 (New 7)
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111122, side: THREE.DoubleSide }); // 검은색
+            const leftWing = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,1.5), new THREE.Vector3(0,0,-4.5), new THREE.Vector3(-8,0,-1.5)]), bodyMat);
+            const rightWing = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,1.5), new THREE.Vector3(0,0,-4.5), new THREE.Vector3(8,0,-1.5)]), bodyMat);
+            group.add(leftWing); group.add(rightWing);
+            tail = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.05, 8), bodyMat); tail.rotation.x = Math.PI/2; tail.position.z = 6; group.add(tail);
+            group.userData.wings = [leftWing, rightWing];
+
+        } else if (type === 'ray') {
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4444aa, side: THREE.DoubleSide });
+            const leftWing = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0.5), new THREE.Vector3(0,0,-1.5), new THREE.Vector3(-3,0,-0.5)]), bodyMat);
+            const rightWing = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0.5), new THREE.Vector3(0,0,-1.5), new THREE.Vector3(3,0,-0.5)]), bodyMat);
+            group.add(leftWing); group.add(rightWing);
+            tail = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.02, 4), bodyMat); tail.rotation.x = Math.PI/2; tail.position.z = 2; group.add(tail);
+            group.userData.wings = [leftWing, rightWing];
+        
+        } else if (type === 'whale') {
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x335577, roughness: 0.6 });
+            mesh = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 32), bodyMat);
+            mesh.scale.set(1, 2.8, 1); mesh.rotation.z = Math.PI / 2; group.add(mesh);
+            tail = new THREE.Mesh(new THREE.BoxGeometry(1, 5, 0.5), bodyMat); tail.rotation.x = Math.PI/2; tail.position.set(-12, 0, 0); group.add(tail);
+        
+        } else if (type === 'turtle') { // 바다거북 (New 8)
+            const shellMat = new THREE.MeshStandardMaterial({color: 0x226622});
+            const skinMat = new THREE.MeshStandardMaterial({color: 0x558855});
+            mesh = new THREE.Mesh(new THREE.SphereGeometry(2, 16, 16, 0, Math.PI*2, 0, Math.PI/2), shellMat); // 등껍질
+            mesh.scale.set(1.2, 0.6, 1.5); group.add(mesh);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.8), skinMat); head.position.set(0, 0, 2); group.add(head);
+            
+            // 지느러미
+            const flipperGeo = new THREE.BoxGeometry(2.5, 0.2, 1);
+            const flipperFL = new THREE.Mesh(flipperGeo, skinMat); flipperFL.position.set(-2, 0, 1.5);
+            const flipperFR = new THREE.Mesh(flipperGeo, skinMat); flipperFR.position.set(2, 0, 1.5);
+            group.add(flipperFL); group.add(flipperFR);
+            group.userData.wings = [flipperFL, flipperFR]; // 가오리 시스템 재사용
+
+        } else if (type === 'dolphin') {
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x88bbcc });
+            mesh = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), bodyMat);
+            mesh.scale.set(1, 2.5, 1); mesh.rotation.z = Math.PI / 2; group.add(mesh);
+            const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.5, 4).scale(1,1,0.2), bodyMat); dorsal.position.set(0, 1, 0); group.add(dorsal);
+            tail = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.5, 4).scale(0.5,1,0.2), bodyMat); tail.rotation.x = Math.PI/2; tail.position.set(-2.5, 0, 0); group.add(tail);
+            group.userData.baseY = y;
+
+        } else if (type === 'jellyfish') {
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffaadd, transparent: true, opacity: 0.6 });
+            mesh = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16, 0, Math.PI*2, 0, Math.PI/2), bodyMat);
+            group.add(mesh); group.userData.jellyBody = mesh; 
+            const tenMat = new THREE.LineBasicMaterial({color: 0xffaadd, transparent:true, opacity:0.5});
+            for(let j=0; j<6; j++) {
+                const a = (j/6)*Math.PI*2;
+                const points = [new THREE.Vector3(Math.cos(a)*0.8, 0, Math.sin(a)*0.8), new THREE.Vector3(Math.cos(a)*0.5, -2, Math.sin(a)*0.5)];
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), tenMat));
+            }
+            group.userData.baseY = y;
+
+        } else if (type === 'seagull') {
+            const birdMat = new THREE.MeshBasicMaterial({color: 0xffffff, side: THREE.DoubleSide});
+            const wingGeo = new THREE.PlaneGeometry(1.5, 0.5);
+            const leftW = new THREE.Mesh(wingGeo, birdMat); leftW.position.x = -0.75; leftW.rotation.x = Math.PI/2;
+            const rightW = new THREE.Mesh(wingGeo, birdMat); rightW.position.x = 0.75; rightW.rotation.x = Math.PI/2;
+            const leftPivot = new THREE.Group(); leftPivot.add(leftW);
+            const rightPivot = new THREE.Group(); rightPivot.add(rightW);
+            group.add(leftPivot); group.add(rightPivot);
+            group.userData.wings = [leftPivot, rightPivot];
+            group.userData.baseY = y;
+
+        } else {
+            const bodyMat = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, emissive: type === 'deep' ? 0xaa00ff : 0x000000, emissiveIntensity: type === 'deep' ? 0.8 : 0 });
+            mesh = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2, 8), bodyMat); mesh.rotation.z = -Math.PI / 2; group.add(mesh);
+            tail = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.8, 4), bodyMat); tail.rotation.z = Math.PI / 2; tail.position.set(-1.2, 0, 0); group.add(tail);
+        }
+
+        group.userData.type = type;
+        group.userData.speed = type === 'shark' ? 0.15 : (type === 'whale' ? 0.05 : (type === 'dolphin' ? 0.2 : (type === 'seagull' ? 0.25 : (type === 'manta' ? 0.06 : (type === 'turtle' ? 0.04 : 0.08)))));
+        group.userData.tail = tail;
+        group.userData.clockOffset = Math.random() * 100;
+        scene.add(group);
+        animatedObjects.push(group);
+    }
+
+    for(let i=0; i<3; i++) createCreature('shark', (Math.random()-0.5)*200, -10 - Math.random()*15, (Math.random()-0.5)*200);
+    for(let i=0; i<3; i++) createCreature('manta', (Math.random()-0.5)*300, -8, (Math.random()-0.5)*300); // 얕은 물 가오리
+    for(let i=0; i<4; i++) createCreature('turtle', (Math.random()-0.5)*150, -5 - Math.random()*10, (Math.random()-0.5)*150); // 거북이
+    for(let i=0; i<5; i++) createCreature('ray', (Math.random()-0.5)*200, -35, (Math.random()-0.5)*200);
+    for(let i=0; i<2; i++) createCreature('whale', (Math.random()-0.5)*300, -20 - Math.random()*20, (Math.random()-0.5)*300);
+    
+    // 일반 물고기 및 심해어 수량 대폭 증가
+    for(let i=0; i<80; i++) createCreature('deep', (Math.random()-0.5)*150, -60 - Math.random()*30, (Math.random()-0.5)*150);
+    for(let i=0; i<150; i++) createCreature('fish', (Math.random()-0.5)*200, -5 - Math.random()*20, (Math.random()-0.5)*200);
+    
+    for(let i=0; i<5; i++) createCreature('dolphin', (Math.random()-0.5)*200, -2, (Math.random()-0.5)*200); 
+    for(let i=0; i<15; i++) createCreature('jellyfish', (Math.random()-0.5)*150, -15 - Math.random()*20, (Math.random()-0.5)*150);
+    
+    // 갈매기 수량 증가
+    for(let i=0; i<30; i++) createCreature('seagull', (Math.random()-0.5)*300, 20 + Math.random()*30, (Math.random()-0.5)*300);
+
+    // 배와 사람 (선장) 생성
+    function createBoat() {
+        const boatGroup = new THREE.Group();
+        
+        // 배 선체 (나무상자를 깎아 만든 모양)
+        const hullGeo = new THREE.BoxGeometry(4, 1.5, 10);
+        const hullMat = new THREE.MeshStandardMaterial({color: 0x8b4513, roughness: 0.9});
+        const posAttr = hullGeo.attributes.position;
+        for(let i=0; i<posAttr.count; i++) {
+            if(posAttr.getZ(i) > 2) posAttr.setX(i, posAttr.getX(i) * 0.5); // 뱃머리를 뾰족하게
+        }
+        hullGeo.computeVertexNormals();
+        const hull = new THREE.Mesh(hullGeo, hullMat);
+        hull.position.y = 0.5;
+        boatGroup.add(hull);
+
+        // 돛대와 돛
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 8), hullMat);
+        mast.position.set(0, 4, 1);
+        boatGroup.add(mast);
+        const sail = new THREE.Mesh(new THREE.PlaneGeometry(4, 6), new THREE.MeshStandardMaterial({color: 0xeeeeee, side: THREE.DoubleSide}));
+        sail.position.set(0, 4, 1.5);
+        boatGroup.add(sail);
+
+        // 사람 (선장)
+        const captain = new THREE.Group();
+        const skinMat = new THREE.MeshStandardMaterial({color: 0xffccaa});
+        const shirtMat = new THREE.MeshStandardMaterial({color: 0xffffff});
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.4), skinMat); head.position.y = 2.4; captain.add(head);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.4), shirtMat); body.position.y = 1.4; captain.add(body);
+        captain.position.set(0, 1.2, -2.5); // 선미 쪽에 서 있음
+        boatGroup.add(captain);
+
+        boatGroup.position.set((Math.random()-0.5)*400, 0, (Math.random()-0.5)*400);
+        boatGroup.userData = { type: 'boat', speed: 0.15 + Math.random()*0.1, offset: Math.random()*100 };
+        scene.add(boatGroup);
+        animatedObjects.push(boatGroup);
+    }
+    
+    // 바다 위에 배 5척 띄우기
+    for(let i=0; i<5; i++) createBoat();
+
+    // 해양 부유물 (Marine Snow)
+    const particlesGeo = new THREE.BufferGeometry();
+    const posArray = new Float32Array(2000 * 3);
+    for(let i=0; i<2000 * 3; i++) posArray[i] = (Math.random() - 0.5) * 400;
+    particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const particles = new THREE.Points(particlesGeo, new THREE.PointsMaterial({ size: 0.2, color: 0xffffff, transparent: true, opacity: 0.5 }));
+    scene.add(particles);
+
+    // 공기 방울 (Bubbles)
+    function createCircleTexture(colorStr = 'white') {
+        const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 16;
+        const ctx = canvas.getContext('2d');
+        ctx.beginPath(); ctx.arc(8, 8, 7, 0, Math.PI*2); ctx.fillStyle = colorStr; ctx.fill();
+        return new THREE.CanvasTexture(canvas);
+    }
+    const bubblesGeo = new THREE.BufferGeometry();
+    const bPosArray = new Float32Array(500 * 3);
+    for(let i=0; i<500*3; i+=3) {
+        bPosArray[i] = (Math.random()-0.5)*200;
+        bPosArray[i+1] = -100 + Math.random()*100;
+        bPosArray[i+2] = (Math.random()-0.5)*200;
+    }
+    bubblesGeo.setAttribute('position', new THREE.BufferAttribute(bPosArray, 3));
+    const bubblesMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff, transparent: true, opacity: 0.8, map: createCircleTexture(), blending: THREE.AdditiveBlending, depthWrite: false });
+    const bubbles = new THREE.Points(bubblesGeo, bubblesMat);
+    scene.add(bubbles);
+
+    // 발광 플랑크톤 (Bioluminescent Plankton) (New 10)
+    const planktonGeo = new THREE.BufferGeometry();
+    const pPosArray = new Float32Array(1000 * 3);
+    for(let i=0; i<1000*3; i+=3) {
+        pPosArray[i] = 30 + (Math.random()-0.5)*100; // 난파선 근처 위주
+        pPosArray[i+1] = -40 - Math.random()*30;
+        pPosArray[i+2] = 100 + (Math.random()-0.5)*100;
+    }
+    planktonGeo.setAttribute('position', new THREE.BufferAttribute(pPosArray, 3));
+    const planktonMat = new THREE.PointsMaterial({ size: 0.8, color: 0x00ffcc, transparent: true, opacity: 0.8, map: createCircleTexture('#00ffcc'), blending: THREE.AdditiveBlending, depthWrite: false });
+    const plankton = new THREE.Points(planktonGeo, planktonMat);
+    scene.add(plankton);
+
+    // --- 6. 입력 제어 ---
+    const inputState = { forward: 0, strafe: 0, vertical: 0 };
+    const keys = { w: false, a: false, s: false, d: false, Space: false, Shift: false };
+    document.addEventListener('keydown', e => {
+        if(e.code === 'Space') keys.Space = true;
+        else if(e.code === 'ShiftLeft') keys.Shift = true;
+        else keys[e.key.toLowerCase()] = true;
+    });
+    document.addEventListener('keyup', e => {
+        if(e.code === 'Space') keys.Space = false;
+        else if(e.code === 'ShiftLeft') keys.Shift = false;
+        else keys[e.key.toLowerCase()] = false;
+    });
+
+    let isDragging = false, previousMousePosition = { x: 0, y: 0 };
+    document.addEventListener('mousedown', e => { isDragging = true; previousMousePosition = { x: e.clientX, y: e.clientY }; });
+    document.addEventListener('mousemove', e => {
+        if (isDragging) {
+            camera.rotation.y -= (e.clientX - previousMousePosition.x) * 0.005;
+            camera.rotation.x -= (e.clientY - previousMousePosition.y) * 0.005;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        }
+    });
+    document.addEventListener('mouseup', () => { isDragging = false; });
+    document.addEventListener('mouseleave', () => { isDragging = false; });
+
+    // 모바일 조이스틱
+    const joystickZone = document.getElementById('joystick-zone');
+    const joystickKnob = document.getElementById('joystick-knob');
+    let joystickActive = false, joystickOrigin = { x: 0, y: 0 };
+    
+    joystickZone.addEventListener('touchstart', e => {
+        joystickActive = true;
+        const rect = joystickZone.getBoundingClientRect();
+        joystickOrigin = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+        updateJoystick(e.touches[0].clientX, e.touches[0].clientY);
+    });
+    joystickZone.addEventListener('touchmove', e => {
+        if (!joystickActive) return;
+        e.preventDefault(); 
+        updateJoystick(e.touches[0].clientX, e.touches[0].clientY);
+    });
+    const endJoystick = () => { joystickActive = false; joystickKnob.style.transform = `translate(0px, 0px)`; inputState.forward = 0; inputState.strafe = 0; };
+    joystickZone.addEventListener('touchend', endJoystick); joystickZone.addEventListener('touchcancel', endJoystick);
+
+    function updateJoystick(clientX, clientY) {
+        let dx = clientX - joystickOrigin.x, dy = clientY - joystickOrigin.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 40) { dx *= 40 / dist; dy *= 40 / dist; }
+        joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        inputState.strafe = dx / 40; inputState.forward = -(dy / 40); 
+    }
+
+    const lookZone = document.getElementById('look-zone');
+    let lastLookX = 0, lastLookY = 0;
+    lookZone.addEventListener('touchstart', e => { lastLookX = e.touches[0].clientX; lastLookY = e.touches[0].clientY; });
+    lookZone.addEventListener('touchmove', e => {
+        e.preventDefault();
+        camera.rotation.y -= (e.touches[0].clientX - lastLookX) * 0.005;
+        camera.rotation.x -= (e.touches[0].clientY - lastLookY) * 0.005;
+        lastLookX = e.touches[0].clientX; lastLookY = e.touches[0].clientY;
+    });
+
+    document.getElementById('btn-up').addEventListener('touchstart', (e) => { e.preventDefault(); inputState.vertical = 1; });
+    document.getElementById('btn-up').addEventListener('touchend', (e) => { e.preventDefault(); inputState.vertical = 0; });
+    document.getElementById('btn-down').addEventListener('touchstart', (e) => { e.preventDefault(); inputState.vertical = -1; });
+    document.getElementById('btn-down').addEventListener('touchend', (e) => { e.preventDefault(); inputState.vertical = 0; });
+
+    // --- 화면 리사이즈 (가로/세로 전환 대응 수정) ---
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight; 
+        camera.updateProjectionMatrix(); 
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', onWindowResize);
+    // 모바일 가로/세로 회전 시 브라우저 UI 변화 지연을 대비하여 setTimeout 적용
+    window.addEventListener('orientationchange', () => setTimeout(onWindowResize, 100));
+
+    // --- 7. 메인 루프 ---
+    function animate() {
+        requestAnimationFrame(animate);
+        const time = Date.now() * 0.001;
+
+        // 이동 처리
+        let moveZ = keys.w ? 1 : (keys.s ? -1 : inputState.forward);
+        let moveX = keys.a ? -1 : (keys.d ? 1 : inputState.strafe);
+        let moveY = keys.space ? 1 : (keys.shift ? -1 : inputState.vertical);
+
+        const speed = 0.4;
+        if (Math.abs(moveZ) > 0.1) camera.translateZ(-moveZ * speed);
+        if (Math.abs(moveX) > 0.1) camera.translateX(moveX * speed);
+        camera.position.y += moveY * speed;
+        camera.rotation.z = 0; 
+
+        // 환경 변화
+        const altitude = camera.position.y;
+        document.getElementById('depth-display').innerText = Math.round(altitude);
+        
+        if (altitude > 0) { 
+            scene.background = skyColor; scene.fog.color = skyColor; scene.fog.density = 0.002;
+            sunLight.intensity = 1.2; spotLight.intensity = 0;
+            document.getElementById('env-status').innerText = "환경: 지상 (Sky)"; document.getElementById('env-status').style.color = "white";
+        } else if (altitude > -40) { 
+            const ratio = Math.abs(altitude / -40);
+            const c = waterColor.clone().lerp(new THREE.Color(0x000000), ratio);
+            scene.background = c; scene.fog.color = c; scene.fog.density = 0.015 + (ratio * 0.02);
+            sunLight.intensity = Math.max(0, 1.2 - ratio * 1.5); spotLight.intensity = ratio * 0.5;
+            document.getElementById('env-status').innerText = "환경: 바다 (Ocean)"; document.getElementById('env-status').style.color = "#00ffff";
+        } else { 
+            scene.background.setHex(0x000000); scene.fog.color.setHex(0x000000); scene.fog.density = 0.04;
+            sunLight.intensity = 0; spotLight.intensity = 2.0; 
+            document.getElementById('env-status').innerText = "환경: 심해 (Abyss)"; document.getElementById('env-status').style.color = "#ff00ff";
+        }
+
+        // 오브젝트 애니메이션
+        animatedObjects.forEach(obj => {
+            const u = obj.userData;
+            
+            if (u.type === 'human') {
+                u.angle += u.speed;
+                obj.position.x = Math.cos(u.angle) * u.baseRadius;
+                obj.position.z = Math.sin(u.angle) * u.baseRadius;
+                obj.rotation.y = -u.angle + Math.PI; 
+                const walkCycle = time * 8 + obj.id;
+                u.leftArm.rotation.x = Math.sin(walkCycle) * 0.5; u.rightArm.rotation.x = -Math.sin(walkCycle) * 0.5;
+                u.leftLeg.rotation.x = -Math.sin(walkCycle) * 0.5; u.rightLeg.rotation.x = Math.sin(walkCycle) * 0.5;
+
+            } else if (u.type === 'ferrisWheel') {
+                // 관람차 회전
+                obj.rotation.z -= u.speed * 0.01;
+                // 관람차가 돌아도 탑승칸은 중력에 의해 항상 똑바로 서 있도록 역회전
+                u.cabins.forEach(cabin => {
+                    cabin.rotation.z = -obj.rotation.z;
+                });
+
+            } else if (u.type === 'carousel') {
+                // 회전목마 본체 회전
+                obj.rotation.y += u.speed * 0.02;
+                // 말들의 위아래 움직임 (Bobbing 애니메이션)
+                u.horseMeshes.forEach(horse => {
+                    horse.position.y = horse.userData.baseY + Math.sin(time * 3 + horse.userData.offset) * 1.5;
+                });
+
+            } else if (u.type === 'fisherman') {
+                // 낚시꾼 찌가 물결에 따라 위아래로 까딱임
+                u.bobber.position.y = -1 + Math.sin(time * 3 + u.offset) * 0.05;
+
+            } else if (u.type === 'boat') {
+                // 배 이동 및 파도 출렁임
+                obj.translateZ(u.speed);
+                obj.position.y = Math.sin(time * 2 + u.offset) * 0.3; // 상하 출렁
+                obj.rotation.x = Math.sin(time * 1.5 + u.offset) * 0.05; // 앞뒤 흔들림
+                obj.rotation.z = Math.cos(time * 1.2 + u.offset) * 0.03; // 좌우 흔들림
+                
+                if (obj.position.distanceTo(new THREE.Vector3(0,0,0)) > 400) {
+                    obj.rotation.y += 0.01; // 멀어지면 부드럽게 유턴
+                }
+
+            } else if (u.type === 'crab') {
+                // 꽃게 옆으로 걷기
+                obj.position.x = u.baseX + Math.sin(time * 2 + u.offset) * 2;
+                obj.position.z = u.baseZ + Math.cos(time * 2 + u.offset) * 2;
+                obj.rotation.y = u.angle + time;
+
+            } else if (u.type === 'schoolFish') {
+                u.angle += u.speed;
+                obj.position.x = u.islandX + Math.cos(u.angle) * u.radius;
+                obj.position.z = u.islandZ + Math.sin(u.angle) * u.radius;
+                obj.position.y = u.yOffset + Math.sin(time*2 + u.clock)*0.5; 
+                obj.rotation.y = -u.angle; 
+
+            } else if (u.type === 'flock') {
+                obj.translateZ(-u.speed);
+                if (obj.position.distanceTo(new THREE.Vector3(0,0,0)) > 500) obj.rotation.y += Math.PI;
+
+            } else if (u.type === 'raft') {
+                obj.position.y = u.baseY + Math.sin(time * 2 + u.offset) * 0.2;
+                obj.rotation.z = Math.sin(time * 1.5 + u.offset) * 0.05;
+
+            } else if (u.type === 'campfire') {
+                u.flame.scale.y = 1 + Math.sin(time * 20) * 0.2;
+                u.light.intensity = 1.5 + Math.random() * 0.5;
+
+            } else if (u.type === 'dolphin') {
+                obj.translateX(u.speed);
+                const jumpProgress = (obj.position.x + obj.position.z) * 0.05; 
+                obj.position.y = u.baseY + Math.sin(jumpProgress) * 5; 
+                obj.rotation.z = Math.cos(jumpProgress) * 0.5;
+                if(u.tail) u.tail.rotation.y = Math.sin(time * 8) * 0.3;
+                if (obj.position.distanceTo(new THREE.Vector3(0,0,0)) > 300) obj.rotation.y += 0.05;
+
+            } else if (u.type === 'smoke') {
+                // 열수구 연기 (위로 올라가며 투명해짐)
+                const sPosAttr = obj.geometry.attributes.position;
+                for(let i=0; i<sPosAttr.count*3; i+=3) {
+                    sPosAttr.array[i+1] += 0.2; // y 상승
+                    if (sPosAttr.array[i+1] > u.baseY + 30) {
+                        sPosAttr.array[i+1] = u.baseY; // 리셋
+                        sPosAttr.array[i] = u.baseX + (Math.random()-0.5)*2;
+                        sPosAttr.array[i+2] = u.baseZ + (Math.random()-0.5)*2;
+                    }
+                }
+                sPosAttr.needsUpdate = true;
+
+            } else if (u.type === 'jellyfish') {
+                obj.position.y = u.baseY + Math.sin(time + u.clockOffset) * 2;
+                const scale = 1 + Math.sin(time * 2 + u.clockOffset) * 0.2;
+                u.jellyBody.scale.set(scale, scale, scale);
+                
+            } else if (u.type === 'seagull') {
+                obj.translateX(u.speed);
+                const flap = Math.sin(time * 15 + u.clockOffset) * 0.5;
+                u.wings[0].rotation.z = flap; u.wings[1].rotation.z = -flap;
+                obj.position.y = u.baseY + Math.sin(time * 2) * 2;
+                if (obj.position.distanceTo(new THREE.Vector3(0,0,0)) > 300) obj.rotation.y += 0.05;
+
+            } else {
+                obj.translateX(u.speed);
+                if (u.type === 'ray' || u.type === 'manta' || u.type === 'turtle') {
+                    const wingSpeed = time * (u.type === 'turtle' ? 2 : 3);
+                    if(u.wings) { u.wings[0].rotation.z = Math.sin(wingSpeed) * 0.5; u.wings[1].rotation.z = -Math.sin(wingSpeed) * 0.5; }
+                } else if (u.tail) {
+                    u.tail.rotation.y = Math.sin(time * 5 + u.clockOffset) * 0.3;
+                    obj.rotation.y += Math.cos(time + obj.id) * 0.002;
+                }
+                if (obj.position.distanceTo(new THREE.Vector3(0,0,0)) > 300) obj.rotation.y += 0.05;
+            }
+        });
+
+        // 해초 물결
+        seaweeds.forEach(kelp => {
+            const posAttr = kelp.geometry.attributes.position;
+            const height = kelp.geometry.parameters.height;
+            for(let i=0; i<posAttr.count; i++) {
+                const baseY = posAttr.getY(i);
+                const ratio = baseY / height; 
+                const offset = Math.sin(time * 1.5 + kelp.userData.phase + baseY * 0.2) * (1.5 * ratio);
+                posAttr.setX(i, kelp.userData.baseX[i] + offset);
+            }
+            posAttr.needsUpdate = true;
+        });
+
+        // 공기방울 상승
+        const bPosAttr = bubbles.geometry.attributes.position;
+        for(let i=1; i<bPosAttr.count*3; i+=3) {
+            bPosAttr.array[i] += 0.2; 
+            if(bPosAttr.array[i] > 0) bPosAttr.array[i] = -100; 
+        }
+        bPosAttr.needsUpdate = true;
+
+        // 플랑크톤 떠다님
+        const pPosAttr = plankton.geometry.attributes.position;
+        for(let i=1; i<pPosAttr.count*3; i+=3) {
+            pPosAttr.array[i] += Math.sin(time*2 + i)*0.05;
+        }
+        pPosAttr.needsUpdate = true;
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+</script>
+</body>
+</html>

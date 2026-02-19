@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>한국 농촌 국가 거점형 산업 인프라 모델</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f5f5f4; /* stone-100 */
+        }
+
+        /* Custom Scrollbar for the list */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #e7e5e4; 
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: #a8a29e; 
+            border-radius: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 300px;
+            margin: 0 auto;
+        }
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .active-card {
+            border-left: 4px solid #0d9488; /* teal-600 */
+            background-color: #f0fdfa; /* teal-50 */
+        }
+    </style>
+    <!-- Chosen Palette: Warm Neutral (Stone) + Deep Teal (Tech/Nature) + Slate (Industry) -->
+    <!-- Application Structure Plan: 
+         1. Hero Section: Sets the context of "National Infrastructure Hubs".
+         2. Dashboard Layout (Two Column):
+            - Left: Filterable List of the 10 Models. Allows quick scanning and categorization.
+            - Right: Dynamic Detail Panel. Shows deep info (Core, Sust, Infra) + Data Viz (Radar Chart) for the selected model.
+         3. Strategy Footer: Summarizes the 3 execution strategies.
+         Reasoning: The report describes distinct entities (models). A master-detail view is best for comparing these complex concepts without losing context. The radar chart adds a layer of hypothetical quantitative analysis to help investors/planners visualize trade-offs (e.g., Cost vs. Impact).
+    -->
+    <!-- Visualization & Content Choices:
+         1. Radar Chart (Chart.js): Visualizes the "Strategic Profile" of each model (Investment Scale, Tech Level, Public Value, ROI Speed).
+            - Goal: Compare. Helps users assess fit for their resources.
+            - Justification: Radar charts are excellent for multi-variate profiles.
+         2. Doughnut Chart (Chart.js): Shows the distribution of models by sector (Energy, Logistics, Tech, Social).
+            - Goal: Organize/Inform. Shows the diversity of the portfolio.
+         3. Unicode Icons: Used for visual categorization (e.g., ⚡ for Energy, 🚜 for Agri) to avoid external image dependencies.
+         4. Interactive List: Filter functionality to narrow down interests.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="text-stone-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-stone-200 shadow-sm flex-none z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-stone-800 tracking-tight">🇰🇷 한국 농촌 산업 인프라 2.0</h1>
+                <p class="text-sm text-stone-500 mt-1">국가 거점형 비즈니스 모델 & 미래 전략 대시보드</p>
+            </div>
+            <div class="hidden md:block">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                    Source: Sustainable Rural Infrastructure Report
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden max-w-7xl mx-auto w-full">
+        
+        <!-- LEFT PANEL: Navigation & Model List -->
+        <aside class="w-full md:w-1/3 lg:w-1/4 bg-white border-r border-stone-200 flex flex-col h-full z-0">
+            <!-- Intro & Filters -->
+            <div class="p-4 border-b border-stone-100 bg-stone-50">
+                <p class="text-xs text-stone-500 mb-3 leading-relaxed">
+                    이 대시보드는 단순 농업을 넘어, <strong>수도권 자원 수요 충족</strong> 및 <strong>첨단 산업 기지</strong>로서의 농촌 활용 모델 10선을 제시합니다. 아래 카테고리를 선택하여 모델을 탐색하세요.
+                </p>
+                <div class="grid grid-cols-2 gap-2" id="filter-container">
+                    <button class="filter-btn px-3 py-2 text-xs font-semibold rounded-md transition-colors bg-teal-600 text-white shadow-sm" data-category="all">전체 보기</button>
+                    <button class="filter-btn px-3 py-2 text-xs font-semibold rounded-md transition-colors bg-white text-stone-600 border border-stone-200 hover:bg-stone-100" data-category="energy">에너지/자원</button>
+                    <button class="filter-btn px-3 py-2 text-xs font-semibold rounded-md transition-colors bg-white text-stone-600 border border-stone-200 hover:bg-stone-100" data-category="logistics">물류/모빌리티</button>
+                    <button class="filter-btn px-3 py-2 text-xs font-semibold rounded-md transition-colors bg-white text-stone-600 border border-stone-200 hover:bg-stone-100" data-category="tech">첨단기술/제조</button>
+                    <button class="filter-btn px-3 py-2 text-xs font-semibold rounded-md transition-colors bg-white text-stone-600 border border-stone-200 hover:bg-stone-100" data-category="social">사회/생활</button>
+                </div>
+            </div>
+
+            <!-- Scrollable List -->
+            <div id="model-list" class="flex-1 overflow-y-auto custom-scroll p-2 space-y-2">
+                <!-- JS will populate cards here -->
+            </div>
+        </aside>
+
+        <!-- RIGHT PANEL: Detailed View & Visualization -->
+        <section class="flex-1 flex flex-col h-full overflow-y-auto bg-stone-50 custom-scroll relative">
+            
+            <!-- Dashboard Top: Stats & Context -->
+            <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Text Context -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 border border-stone-100">
+                    <h2 class="text-lg font-bold text-stone-800 mb-2">💡 인프라 모델 상세 분석</h2>
+                    <p class="text-sm text-stone-600 leading-relaxed mb-4">
+                        좌측 목록에서 모델을 선택하면 상세 내용이 표시됩니다. 각 모델은 <strong>핵심 기능</strong>, <strong>지속 가능성</strong>, 그리고 <strong>인프라적 가치</strong>를 기준으로 분석되었습니다.
+                    </p>
+                    <div class="flex items-center space-x-4 text-xs text-stone-500">
+                        <div class="flex items-center"><span class="w-2 h-2 rounded-full bg-teal-500 mr-1"></span>높은 공공성</div>
+                        <div class="flex items-center"><span class="w-2 h-2 rounded-full bg-orange-400 mr-1"></span>높은 기술요구도</div>
+                        <div class="flex items-center"><span class="w-2 h-2 rounded-full bg-indigo-500 mr-1"></span>장기 수익성</div>
+                    </div>
+                </div>
+
+                <!-- Global Distribution Chart -->
+                <div class="bg-white rounded-xl shadow-sm p-4 border border-stone-100 flex flex-col items-center justify-center">
+                    <h3 class="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">산업 분야 분포</h3>
+                    <div style="height: 120px; width: 120px;">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Detail Content -->
+            <div id="detail-view" class="px-6 pb-6 flex-1">
+                <!-- JS will populate detail content here -->
+                <div class="flex items-center justify-center h-64 text-stone-400">
+                    <p>좌측에서 모델을 선택해주세요.</p>
+                </div>
+            </div>
+
+            <!-- Strategic Footer -->
+            <div class="bg-stone-800 text-stone-200 p-6 mt-auto">
+                <h3 class="text-sm font-bold text-teal-400 mb-4 uppercase tracking-widest">🛠️ 국가 거점 도약 전략 3단계</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                    <div class="bg-stone-700/50 p-3 rounded-lg border border-stone-600">
+                        <strong class="block text-white mb-1">🔗 1. 연결성 (Connectivity)</strong>
+                        <p class="text-xs text-stone-300">생산된 에너지와 데이터를 수도권 및 대도시와 실시간으로 동기화/송전하여 고립을 탈피.</p>
+                    </div>
+                    <div class="bg-stone-700/50 p-3 rounded-lg border border-stone-600">
+                        <strong class="block text-white mb-1">🤖 2. 로봇 자동화 (Automation)</strong>
+                        <p class="text-xs text-stone-300">인구 감소 지역의 인력난 해결을 위해 전 공정에 AMR, 드론 등 무인 자동화 도입.</p>
+                    </div>
+                    <div class="bg-stone-700/50 p-3 rounded-lg border border-stone-600">
+                        <strong class="block text-white mb-1">⚖️ 3. 규제 샌드박스 (Deregulation)</strong>
+                        <p class="text-xs text-stone-300">자율주행, 드론 배송 등 신기술 실증을 위한 '규제 자유 특구' 지정을 적극 활용.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- DATA ---
+        // Based on the provided source report.
+        // Categories: energy, logistics, tech, social
+        // Scores (1-10 Hypothetical): Cost (Investment), Tech (Difficulty), Public (Social Value), Profit (Long-term ROI)
+        const models = [
+            {
+                id: 1,
+                title: "사계절 대응 대규모 지열 식물공장",
+                category: "energy",
+                icon: "🌿",
+                summary: "지열 히트펌프를 활용한 기후 무관 대량 생산 기지",
+                core: "한국의 뚜렷한 사계절 기후 변화에 영향을 받지 않도록 지열 히트펌프 시스템을 대규모화한 식물 생산 센터입니다.",
+                sustainability: "기상 이변으로 인한 신선 식품 가격 변동에 대응하여 수도권에 안정적인 물량을 공급하는 국가 식량 안보 기지 역할을 합니다.",
+                infrastructure: "수만 평 규모의 자동화 온실을 구축하여 고부가가치 약용 작물 및 특수 채소를 대량 생산합니다.",
+                scores: { cost: 8, tech: 7, public: 9, profit: 8 }
+            },
+            {
+                id: 2,
+                title: "수도권 송전형 바이오가스 에너지 허브",
+                category: "energy",
+                icon: "⚡",
+                summary: "축분/폐기물 발전 및 수도권 송전 시스템",
+                core: "지역의 축산 분뇨와 농업 폐기물을 처리해 전기를 생산하고, 이를 ESS와 연계하여 수도권 및 인근 산업단지로 송전합니다.",
+                sustainability: "에너지 판매 수익뿐만 아니라 탄소 배출권 거래, 폐기물 처리 수수료 등 다각화된 수익 구조를 가집니다.",
+                infrastructure: "단순 발전소를 넘어 지역 전력망의 안정성을 유지하는 분산형 전원(Distributed Generation) 거점입니다.",
+                scores: { cost: 7, tech: 6, public: 10, profit: 7 }
+            },
+            {
+                id: 3,
+                title: "하이퍼스케일 데이터센터 및 클라우드 엣지",
+                category: "tech",
+                icon: "💾",
+                summary: "자연 냉각을 활용한 대규모 서버 시설",
+                core: "수도권의 데이터 포화 상태를 해결하기 위해 시골의 넓은 부지에 대규모 서버 수용 시설을 구축합니다.",
+                sustainability: "지열 및 지하수를 활용한 냉각 시스템으로 운영비를 획기적으로 낮춰 글로벌 IT 기업의 장기 임차를 유도합니다.",
+                infrastructure: "초고속 광통신망을 인근 지역까지 확충하여 지역 전체의 디지털 인프라 수준을 격상시킵니다.",
+                scores: { cost: 9, tech: 9, public: 7, profit: 9 }
+            },
+            {
+                id: 4,
+                title: "자율주행·로봇·드론 통합 테스트베드",
+                category: "tech",
+                icon: "🏎️",
+                summary: "미래 모빌리티 R&D 및 실증 단지",
+                core: "자율주행 자동차, 농기계, 배송 로봇의 실제 주행 및 운영을 테스트하는 대규모 실증 단지입니다.",
+                sustainability: "미래 모빌리티 기업들의 필수 연구 시설로 활용되며, 관련 기업부설 연구소 유치가 가능합니다.",
+                infrastructure: "관제 센터, 정비소, 시뮬레이션 센터를 갖춘 첨단 기술 집약형 연구 인프라입니다.",
+                scores: { cost: 6, tech: 8, public: 8, profit: 7 }
+            },
+            {
+                id: 5,
+                title: "아마존식 로봇 자동화 물류 및 콜드체인",
+                category: "logistics",
+                icon: "📦",
+                summary: "로봇 분류 시스템과 신선식품 콜드체인 거점",
+                core: "로봇이 분류 및 포장을 담당하는 아마존형 대형 물류 센터를 구축하고, 의약품 및 신선식품 전용 콜드체인을 운영합니다.",
+                sustainability: "인근 지역 및 도서 산간 지역으로의 '라스트 마일' 배송 거점 역할을 하며 물류 효율을 극대화합니다.",
+                infrastructure: "자동화 랙 시스템, 상하차 로봇, 온도 정밀 제어 시스템이 결합된 고도화된 물류 기지입니다.",
+                scores: { cost: 8, tech: 8, public: 8, profit: 9 }
+            },
+            {
+                id: 6,
+                title: "드론·로봇 기반 의료 및 생필품 배송 허브",
+                category: "logistics",
+                icon: "🚁",
+                summary: "긴급 의약품 및 생필품 드론 배송 네트워크",
+                core: "도로 인프라가 취약한 지역을 대상으로 드론을 이용해 긴급 의약품 및 생필품을 배달하는 서비스 거점입니다.",
+                sustainability: "공공 의료 서비스와 연계하여 국가 복지 예산을 확보하고, 민간 배송 대행 수익을 창출합니다.",
+                infrastructure: "드론 스테이션, 로봇 충전소, 통합 관제 시스템을 포함한 미래형 배송망입니다.",
+                scores: { cost: 5, tech: 9, public: 10, profit: 6 }
+            },
+            {
+                id: 7,
+                title: "전기·수소 상용차/농기계 충전 스테이션",
+                category: "energy",
+                icon: "🔋",
+                summary: "대형 모빌리티 전용 친환경 충전 인프라",
+                core: "대형 전기 트럭과 수소 농기계가 필수적으로 거쳐야 하는 광역 충전 및 정비 인프라입니다.",
+                sustainability: "내연기관 퇴출 시대에 따라 반드시 필요한 공공 성격의 필수 인프라로 자리 잡습니다.",
+                infrastructure: "수소 저장 탱크, 대용량 ESS, 급속 충전 포트를 갖춘 복합 에너지 공급 시설입니다.",
+                scores: { cost: 7, tech: 6, public: 9, profit: 8 }
+            },
+            {
+                id: 8,
+                title: "폐배터리 리사이클링 및 재제조 플랜트",
+                category: "tech",
+                icon: "♻️",
+                summary: "전기차/농기계 폐배터리 자원 순환 기지",
+                core: "전기차 및 농기계에서 나오는 폐배터리를 수거하여 ESS로 재조립하거나 원료를 추출하는 공장입니다.",
+                sustainability: "배터리 핵심 광물의 확보가 중요해짐에 따라 국가 차원의 전략적 산업 기지가 됩니다.",
+                infrastructure: "친환경 정제 설비 및 배터리 성능 진단 시스템을 갖춘 자원 순환 단지입니다.",
+                scores: { cost: 8, tech: 9, public: 8, profit: 9 }
+            },
+            {
+                id: 9,
+                title: "디지털 헬스케어 통합 스마트 실버 빌리지",
+                category: "social",
+                icon: "🏥",
+                summary: "IoT/로봇 기반 고령자 첨단 케어 단지",
+                core: "원격 진료 로봇과 IoT 건강 모니터링 시스템이 갖춰진 고령자 전용 첨단 주거 및 의료 단지입니다.",
+                sustainability: "초고령 사회의 의료비 절감 모델로, 정부의 복지 정책 및 민간 유료 케어 서비스가 결합됩니다.",
+                infrastructure: "전문 의료 센터, 디지털 케어 플랫폼, 커뮤니티 시설이 통합된 복합 생활 인프라입니다.",
+                scores: { cost: 9, tech: 7, public: 10, profit: 8 }
+            },
+            {
+                id: 10,
+                title: "첨단 모듈러 하우스 및 로봇 제조 공장",
+                category: "tech",
+                icon: "🏗️",
+                summary: "로봇 자동화 기반 모듈러 주택 생산 기지",
+                core: "로봇 자동화 공정을 통해 농막, 세컨하우스, 소규모 상가를 규격화하여 생산하는 제조 기지입니다.",
+                sustainability: "주택 건설 비용 상승과 짧은 공기를 원하는 시장 수요에 대응하여 전국적인 공급망을 구축합니다.",
+                infrastructure: "대형 3D 프린팅 및 로봇 조립 라인을 갖춘 미래형 주택 생산 플랜트입니다.",
+                scores: { cost: 7, tech: 8, public: 6, profit: 8 }
+            }
+        ];
+
+        // --- STATE & DOM ELEMENTS ---
+        let currentCategory = 'all';
+        let selectedModelId = 1; // Default select first
+        let radarChartInstance = null;
+        let distributionChartInstance = null;
+
+        const listContainer = document.getElementById('model-list');
+        const detailContainer = document.getElementById('detail-view');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+
+        // --- INITIALIZATION ---
+        function init() {
+            renderList();
+            renderDetail(selectedModelId);
+            initDistributionChart();
+            
+            // Event Listeners for Filters
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // Update Active State
+                    filterBtns.forEach(b => {
+                        b.classList.remove('bg-teal-600', 'text-white');
+                        b.classList.add('bg-white', 'text-stone-600', 'hover:bg-stone-100');
+                    });
+                    e.target.classList.remove('bg-white', 'text-stone-600', 'hover:bg-stone-100');
+                    e.target.classList.add('bg-teal-600', 'text-white');
+
+                    currentCategory = e.target.dataset.category;
+                    renderList();
+                });
+            });
+        }
+
+        // --- RENDER FUNCTIONS ---
+
+        function renderList() {
+            listContainer.innerHTML = '';
+            
+            const filteredModels = currentCategory === 'all' 
+                ? models 
+                : models.filter(m => m.category === currentCategory);
+
+            if (filteredModels.length === 0) {
+                listContainer.innerHTML = '<div class="text-center text-stone-400 text-sm mt-4">해당 카테고리의 모델이 없습니다.</div>';
+                return;
+            }
+
+            filteredModels.forEach(model => {
+                const card = document.createElement('div');
+                const isActive = model.id === selectedModelId;
+                
+                card.className = `p-4 rounded-lg cursor-pointer border mb-2 card-hover transition-colors ${
+                    isActive 
+                    ? 'active-card border-teal-200' 
+                    : 'bg-white border-stone-200 hover:border-teal-300'
+                }`;
+                
+                card.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-3">${model.icon}</span>
+                            <div>
+                                <h3 class="font-bold text-stone-800 text-sm leading-tight">${model.title}</h3>
+                                <p class="text-xs text-stone-500 mt-1 line-clamp-1">${model.summary}</p>
+                            </div>
+                        </div>
+                        ${isActive ? '<span class="text-teal-600 text-xs font-bold">●</span>' : ''}
+                    </div>
+                `;
+
+                card.addEventListener('click', () => {
+                    selectedModelId = model.id;
+                    renderList(); // Re-render to update active styling
+                    renderDetail(model.id); // Update right panel
+                });
+
+                listContainer.appendChild(card);
+            });
+        }
+
+        function renderDetail(id) {
+            const model = models.find(m => m.id === id);
+            if (!model) return;
+
+            // Generate HTML for details
+            detailContainer.innerHTML = `
+                <div class="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden animate-fade-in">
+                    <!-- Title Header -->
+                    <div class="bg-stone-800 p-6 flex items-center justify-between text-white">
+                        <div class="flex items-center">
+                            <span class="text-4xl mr-4 bg-stone-700 p-2 rounded-lg">${model.icon}</span>
+                            <div>
+                                <span class="text-xs font-bold text-teal-400 uppercase tracking-wider bg-stone-700 px-2 py-1 rounded inline-block mb-1">
+                                    ${getCategoryName(model.category)}
+                                </span>
+                                <h2 class="text-2xl font-bold">${model.title}</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        <!-- Left: Text Content -->
+                        <div class="xl:col-span-2 space-y-6">
+                            <!-- Core -->
+                            <div class="relative pl-4 border-l-4 border-teal-500">
+                                <h4 class="text-sm font-bold text-teal-700 mb-1 uppercase">핵심 (Core)</h4>
+                                <p class="text-stone-700 leading-relaxed">${model.core}</p>
+                            </div>
+
+                            <!-- Sustainability -->
+                            <div class="relative pl-4 border-l-4 border-orange-400">
+                                <h4 class="text-sm font-bold text-orange-600 mb-1 uppercase">지속 가능성 (Sustainability)</h4>
+                                <p class="text-stone-700 leading-relaxed">${model.sustainability}</p>
+                            </div>
+
+                            <!-- Infrastructure -->
+                            <div class="relative pl-4 border-l-4 border-indigo-500">
+                                <h4 class="text-sm font-bold text-indigo-600 mb-1 uppercase">인프라 가치 (Infrastructure)</h4>
+                                <p class="text-stone-700 leading-relaxed">${model.infrastructure}</p>
+                            </div>
+                        </div>
+
+                        <!-- Right: Chart -->
+                        <div class="xl:col-span-1 flex flex-col items-center bg-stone-50 rounded-lg p-4 border border-stone-100">
+                            <h4 class="text-sm font-bold text-stone-500 mb-4 w-full text-center border-b pb-2">전략적 생존성 분석</h4>
+                            <div class="chart-container">
+                                <canvas id="radarChart"></canvas>
+                            </div>
+                            <div class="mt-4 text-xs text-stone-500 text-center space-y-1">
+                                <p><strong class="text-teal-700">공공가치:</strong> 사회적 기여도 및 정책 부합성</p>
+                                <p><strong class="text-orange-600">기술난이도:</strong> 구현 및 운영의 복잡성</p>
+                                <p><strong class="text-indigo-600">초기투자:</strong> 시설 구축에 드는 비용 규모</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            initRadarChart(model);
+        }
+
+        // --- CHARTS ---
+
+        function initRadarChart(model) {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            
+            // Destroy previous instance if exists
+            if (radarChartInstance) {
+                radarChartInstance.destroy();
+            }
+
+            radarChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['초기 투자 규모', '기술 난이도', '공공/사회 가치', '장기 수익성'],
+                    datasets: [{
+                        label: '모델 분석 점수 (1-10)',
+                        data: [model.scores.cost, model.scores.tech, model.scores.public, model.scores.profit],
+                        backgroundColor: 'rgba(13, 148, 136, 0.2)', // teal-600
+                        borderColor: 'rgba(13, 148, 136, 1)',
+                        pointBackgroundColor: 'rgba(13, 148, 136, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(13, 148, 136, 1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: '#e5e7eb' },
+                            grid: { color: '#e5e7eb' },
+                            pointLabels: {
+                                font: { size: 11, family: "'Noto Sans KR', sans-serif" },
+                                color: '#4b5563'
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 10,
+                            ticks: { display: false, stepSize: 2 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function initDistributionChart() {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            
+            // Count categories
+            const counts = { energy: 0, logistics: 0, tech: 0, social: 0 };
+            models.forEach(m => {
+                if(counts[m.category] !== undefined) counts[m.category]++;
+            });
+
+            distributionChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['에너지', '물류', '기술/제조', '사회'],
+                    datasets: [{
+                        data: [counts.energy, counts.logistics, counts.tech, counts.social],
+                        backgroundColor: [
+                            '#f97316', // orange-500 (Energy)
+                            '#3b82f6', // blue-500 (Logistics)
+                            '#14b8a6', // teal-500 (Tech)
+                            '#ec4899'  // pink-500 (Social)
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        // --- UTILS ---
+        function getCategoryName(cat) {
+            switch(cat) {
+                case 'energy': return '에너지 & 자원';
+                case 'logistics': return '물류 & 모빌리티';
+                case 'tech': return '첨단기술 & 제조';
+                case 'social': return '사회 & 생활 인프라';
+                default: return '기타';
+            }
+        }
+
+        // Run Init
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
